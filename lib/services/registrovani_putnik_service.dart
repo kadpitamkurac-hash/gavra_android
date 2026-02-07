@@ -349,10 +349,19 @@ class RegistrovaniPutnikService {
         if (newRecord['status'] == 'radi' && !newRecord.containsKey('polasci_po_danu')) {
           debugPrint('⚠️ [RegistrovaniPutnik] RESET bez polasci_po_danu - parcijalan payload!');
         }
+      } else {
+        // Ako nema u _lastValue, kreni sa newRecord
+        mergedRecord = Map<String, dynamic>.from(newRecord);
       }
       
       // Nadpiši sa novim vrednostima iz realtime update-a
       mergedRecord.addAll(newRecord);
+      
+      // Debug: Log šta se merdžuje za reset
+      if (mergedRecord['putnik_ime'] != null && (mergedRecord['putnik_ime'] as String).contains('Dušica')) {
+        debugPrint('🔀 [_handleUpdate] Merge za ${mergedRecord['putnik_ime']}: aktivan=${mergedRecord['aktivan']}, obrisan=${mergedRecord['obrisan']}, isDuplicate=${mergedRecord['is_duplicate']}');
+        debugPrint('🔀 [_handleUpdate] polasci_po_danu=${mergedRecord['polasci_po_danu']}');
+      }
 
       final updatedPutnik = RegistrovaniPutnik.fromMap(mergedRecord);
 
@@ -361,20 +370,27 @@ class RegistrovaniPutnikService {
       final obrisan = mergedRecord['obrisan'] as bool? ?? true;
       final isDuplicate = mergedRecord['is_duplicate'] as bool? ?? false;
       final shouldBeIncluded = aktivan && !obrisan && !isDuplicate;
+      
+      if (mergedRecord['putnik_ime'] != null && (mergedRecord['putnik_ime'] as String).contains('Dušica')) {
+        debugPrint('✔️ [_handleUpdate] Dušica shouldBeIncluded=$shouldBeIncluded (aktivan=$aktivan, obrisan=$obrisan, isDuplicate=$isDuplicate)');
+      }
 
       if (shouldBeIncluded) {
         if (index == -1) {
           // Možda je bio neaktivan, a sada je aktivan - dodaj
           _lastValue!.add(updatedPutnik);
+          debugPrint('➕ [_handleUpdate] Dodao sam ${mergedRecord['putnik_ime']} u _lastValue');
         } else {
           // Update postojeći
           _lastValue![index] = updatedPutnik;
+          debugPrint('🔄 [_handleUpdate] Ažurirao sam ${mergedRecord['putnik_ime']} u _lastValue');
         }
         _lastValue!.sort((a, b) => a.putnikIme.compareTo(b.putnikIme));
       } else {
         // Ukloni iz liste ako postoji
         if (index != -1) {
           _lastValue!.removeAt(index);
+          debugPrint('❌ [_handleUpdate] Uklonio sam ${mergedRecord['putnik_ime']} iz _lastValue');
         }
       }
 
