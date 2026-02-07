@@ -1199,12 +1199,13 @@ class _PutnikCardState extends State<PutnikCard> {
 
   void _handleTap() {
     _tapCount++;
+    debugPrint('🎯 TAP #${_tapCount} na kartici ${_putnik.ime} (${widget.currentDriver})');
 
-    // Ako je ovo prvi tap, kreni timer
+    // Ako je ovo prvi tap, kreni timer (produžen sa 500ms na 800ms za bolje hvatanje)
     if (_tapCount == 1) {
       _tapTimer?.cancel();
-      _tapTimer = Timer(const Duration(milliseconds: 500), () {
-        // Ako nismo dobili 3 tap-a za 500ms, resetuj
+      _tapTimer = Timer(const Duration(milliseconds: 800), () {
+        debugPrint('⏱️ Timeout: reset _tapCount sa ${_tapCount} na 0');
         _tapCount = 0;
       });
     }
@@ -1216,6 +1217,7 @@ class _PutnikCardState extends State<PutnikCard> {
 
       // Triple tap - admin reset kartice u početno stanje (ako je admin)
       final bool isAdmin = widget.currentDriver == 'Bojan' || widget.currentDriver == 'Svetlana';
+      debugPrint('🎯 TRIPLE TAP DETECTED - isAdmin=$isAdmin (${widget.currentDriver})');
       if (isAdmin) {
         _handleReset();
       } else {

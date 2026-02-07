@@ -1338,7 +1338,7 @@ class RegistrovaniPutnikService {
 
       // Sačuvaj u bazu
       await _supabase.from('registrovani_putnici').update({
-        'polasci_po_danu': polasci,
+        'polasci_po_danu': jsonEncode(polasci), // ✅ Konvertuj Map u JSON string
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', putnikId);
     } catch (e) {
@@ -1572,7 +1572,7 @@ class RegistrovaniPutnikService {
     polasci[danKratica] = dayData;
 
     await _supabase.from('registrovani_putnici').update({
-      'polasci_po_danu': polasci,
+      'polasci_po_danu': jsonEncode(polasci), // ✅ Konvertuj Map u JSON string
       'updated_at': now.toUtc().toIso8601String(),
     }).eq('id', id);
 
@@ -1672,9 +1672,10 @@ class RegistrovaniPutnikService {
         },
       );
 
+      // ✅ FIX: Sačuva original JSON kao string (polasciPoDanuOriginal će biti prepisana)
       await _supabase.from('registrovani_putnici').update({
         'status': 'radi',
-        'polasci_po_danu': polasci,
+        'polasci_po_danu': jsonEncode(polasci), // ✅ Konvertuj Map u JSON string
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('putnik_ime', imePutnika);
     }
