@@ -338,12 +338,19 @@ class RegistrovaniPutnikService {
         debugPrint('🔧 [RegistrovaniPutnik] RESET ACTION: $putnikIme - status=${'radi'}, polasci ažurirani');
       }
 
-      // Merge sa stareom vredošću ako postoji lokalno
+      // Merge sa starom vredošću ako postoji lokalno
       Map<String, dynamic> mergedRecord = {};
       if (index != -1) {
         // Kreni sa starom vredošću
         mergedRecord = _lastValue![index].toMap();
+        
+        // POSEBAN SLUČAJ: Ako je newRecord parcijalan (realtime update bez svih polja),
+        // a status je 'radi' (što ukazuje na reset), trebam biti siguran da je polasci osvežen
+        if (newRecord['status'] == 'radi' && !newRecord.containsKey('polasci_po_danu')) {
+          debugPrint('⚠️ [RegistrovaniPutnik] RESET bez polasci_po_danu - parcijalan payload!');
+        }
       }
+      
       // Nadpiši sa novim vrednostima iz realtime update-a
       mergedRecord.addAll(newRecord);
 
