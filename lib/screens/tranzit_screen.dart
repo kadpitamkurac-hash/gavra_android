@@ -271,6 +271,7 @@ class _TranzitScreenState extends State<TranzitScreen> with SingleTickerProvider
                 child: Column(
                   children: trips
                       .map((p) => PutnikCard(
+                            key: ValueKey(p.id),
                             putnik: p,
                             currentDriver: widget.currentDriver,
                           ))

@@ -161,6 +161,7 @@ class PutnikList extends StatelessWidget {
               }
 
               return PutnikCard(
+                key: ValueKey(putnik.id),
                 putnik: putnik,
                 showActions: showActions,
                 currentDriver: currentDriver,
@@ -246,6 +247,7 @@ class PutnikList extends StatelessWidget {
               redniBroj = _pocetniRedniBroj(prikaz, index);
             }
             return PutnikCard(
+              key: ValueKey(putnik.id),
               putnik: putnik,
               showActions: showActions,
               currentDriver: currentDriver,
@@ -288,6 +290,7 @@ class PutnikList extends StatelessWidget {
             redniBroj = _pocetniRedniBroj(filteredPutnici, index);
           }
           return PutnikCard(
+            key: ValueKey(putnik.id),
             putnik: putnik,
             showActions: showActions,
             currentDriver: currentDriver,

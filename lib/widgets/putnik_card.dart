@@ -2357,7 +2357,7 @@ class _PutnikCardState extends State<PutnikCard> {
         );
 
         // Sačekaj malo da se baza ažurira i stream emituje
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future.delayed(const Duration(milliseconds: 500));
 
         if (widget.onChanged != null) {
           widget.onChanged!();

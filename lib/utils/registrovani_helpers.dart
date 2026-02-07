@@ -1,7 +1,5 @@
 ﻿import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-
 import 'grad_adresa_validator.dart';
 
 enum RegistrovaniStatus { active, canceled, vacation, unknown }

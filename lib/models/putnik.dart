@@ -1,7 +1,5 @@
 ﻿import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
-
 import '../services/adresa_supabase_service.dart'; // DODATO za fallback učitavanje adrese
 import '../services/vozac_mapping_service.dart'; // DODATO za UUID<->ime konverziju
 import '../services/vreme_vozac_service.dart'; // ?? Za per-vreme dodeljivanje vozaca
