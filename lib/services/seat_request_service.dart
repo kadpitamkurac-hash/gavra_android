@@ -102,7 +102,7 @@ class SeatRequestService {
   /// Dohvata aktivne zahteve
   static Future<List<Map<String, dynamic>>> getActiveRequests() async {
     try {
-      final response = await _supabase.from('seat_requests').select().order('created_at', ascending: false);
+      final response = await _supabase.from('seat_requests').select().eq('status', 'pending').order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       return [];
