@@ -278,12 +278,6 @@ class RegistrovaniHelpers {
     final otkazanoKey = '${place}_otkazano';
     final otkazanoTimestamp = dayData[otkazanoKey] as String?;
 
-    // Debug za Marin
-    if ((rawMap['putnik_ime'] as String? ?? '').contains('Marin')) {
-      debugPrint(
-          '🔍 [isOtkazanForDayAndPlace] Marin | day=$dayKratica, place=$place | otkazanoKey=$otkazanoKey | timestamp=$otkazanoTimestamp | dayData=${dayData.toString()}');
-    }
-
     if (otkazanoTimestamp == null || otkazanoTimestamp.isEmpty) {
       return false;
     }
