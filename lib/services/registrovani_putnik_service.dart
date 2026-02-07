@@ -343,7 +343,7 @@ class RegistrovaniPutnikService {
       if (index != -1) {
         // Kreni sa starom vredošću
         mergedRecord = _lastValue![index].toMap();
-        
+
         // POSEBAN SLUČAJ: Ako je newRecord parcijalan (realtime update bez svih polja),
         // a status je 'radi' (što ukazuje na reset), trebam biti siguran da je polasci osvežen
         if (newRecord['status'] == 'radi' && !newRecord.containsKey('polasci_po_danu')) {
@@ -353,13 +353,14 @@ class RegistrovaniPutnikService {
         // Ako nema u _lastValue, kreni sa newRecord
         mergedRecord = Map<String, dynamic>.from(newRecord);
       }
-      
+
       // Nadpiši sa novim vrednostima iz realtime update-a
       mergedRecord.addAll(newRecord);
-      
+
       // Debug: Log šta se merdžuje za reset
       if (mergedRecord['putnik_ime'] != null && (mergedRecord['putnik_ime'] as String).contains('Dušica')) {
-        debugPrint('🔀 [_handleUpdate] Merge za ${mergedRecord['putnik_ime']}: aktivan=${mergedRecord['aktivan']}, obrisan=${mergedRecord['obrisan']}, isDuplicate=${mergedRecord['is_duplicate']}');
+        debugPrint(
+            '🔀 [_handleUpdate] Merge za ${mergedRecord['putnik_ime']}: aktivan=${mergedRecord['aktivan']}, obrisan=${mergedRecord['obrisan']}, isDuplicate=${mergedRecord['is_duplicate']}');
         debugPrint('🔀 [_handleUpdate] polasci_po_danu=${mergedRecord['polasci_po_danu']}');
       }
 
@@ -370,9 +371,10 @@ class RegistrovaniPutnikService {
       final obrisan = mergedRecord['obrisan'] as bool? ?? true;
       final isDuplicate = mergedRecord['is_duplicate'] as bool? ?? false;
       final shouldBeIncluded = aktivan && !obrisan && !isDuplicate;
-      
+
       if (mergedRecord['putnik_ime'] != null && (mergedRecord['putnik_ime'] as String).contains('Dušica')) {
-        debugPrint('✔️ [_handleUpdate] Dušica shouldBeIncluded=$shouldBeIncluded (aktivan=$aktivan, obrisan=$obrisan, isDuplicate=$isDuplicate)');
+        debugPrint(
+            '✔️ [_handleUpdate] Dušica shouldBeIncluded=$shouldBeIncluded (aktivan=$aktivan, obrisan=$obrisan, isDuplicate=$isDuplicate)');
       }
 
       if (shouldBeIncluded) {
@@ -386,7 +388,7 @@ class RegistrovaniPutnikService {
           debugPrint('🔄 [_handleUpdate] Ažurirao sam ${mergedRecord['putnik_ime']} u _lastValue');
         }
         _lastValue!.sort((a, b) => a.putnikIme.compareTo(b.putnikIme));
-        
+
         // Debug: Log _lastValue nakon sort-a
         debugPrint('📊 [_handleUpdate] Sadržaj _lastValue nakon sort-a (${_lastValue!.length} putnika):');
         for (int i = 0; i < _lastValue!.length; i++) {
@@ -398,6 +400,8 @@ class RegistrovaniPutnikService {
         if (index != -1) {
           _lastValue!.removeAt(index);
           debugPrint('❌ [_handleUpdate] Uklonio sam ${mergedRecord['putnik_ime']} iz _lastValue');
+        } else {
+          debugPrint('⚠️ [_handleUpdate] ${mergedRecord['putnik_ime']} se ne uključuje (aktivan=$aktivan, obrisan=$obrisan, isDuplicate=$isDuplicate)');
         }
       }
 
@@ -1685,13 +1689,13 @@ class RegistrovaniPutnikService {
       // ✅ FIX: Sačuva original JSON kao string (polasciPoDanuOriginal će biti prepisana)
       final jsonString = jsonEncode(polasci);
       debugPrint('🔧 [resetPutnikCard] Ažuriram $imePutnika - polasci_po_danu: $jsonString');
-      
+
       await _supabase.from('registrovani_putnici').update({
         'status': 'radi',
         'polasci_po_danu': jsonString, // ✅ Konvertuj Map u JSON string
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('putnik_ime', imePutnika);
-      
+
       debugPrint('✅ [resetPutnikCard] Uspešno ažuriran $imePutnika');
     }
   }
