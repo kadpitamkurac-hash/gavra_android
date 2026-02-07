@@ -28,6 +28,22 @@ class SeatRequestService {
     try {
       final datum = getNextDateForDay(DateTime.now(), dan);
 
+      // Check if already exists a pending request for same putnik, grad, datum, vreme
+      final existing = await _supabase
+          .from('seat_requests')
+          .select('id')
+          .eq('putnik_id', putnikId)
+          .eq('grad', grad.toUpperCase())
+          .eq('datum', datum.toIso8601String().split('T')[0])
+          .eq('zeljeno_vreme', vreme)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+      if (existing != null) {
+        debugPrint('⚠️ [SeatRequestService] Pending request already exists for $putnikId $grad $dan $vreme');
+        return false; // Already exists
+      }
+
       // Attempt insert and return created row (safe check)
       final inserted = await _supabase
           .from('seat_requests')
