@@ -387,6 +387,12 @@ class RegistrovaniPutnikService {
   /// 🔊 Emit update u stream
   static void _emitUpdate() {
     if (_sharedController != null && !_sharedController!.isClosed) {
+      // Debug: Log šta emitujemo
+      for (final p in _lastValue!) {
+        if (p.putnikIme.contains('Djordje')) {
+          debugPrint('📤 [_emitUpdate] Emitujemo: ${p.putnikIme} | polasciPoDanuOriginal type=${p.polasciPoDanuOriginal.runtimeType}');
+        }
+      }
       _sharedController!.add(List.from(_lastValue!));
     }
   }
