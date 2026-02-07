@@ -53,18 +53,29 @@ class ConfigService {
     // Vault credentials više nisu potrebni
   }
 
-  /// Učitaj keystore podatke iz environment varijabli
+  /// Učitaj keystore podatke iz environment varijabli ili .env fajla
   void _loadKeystoreFromEnv() {
-    // Učitaj iz environment varijabli (--dart-define)
+    // Prvo pokušaj iz environment varijabli (--dart-define)
     _storePassword = const String.fromEnvironment('KEYSTORE_PASSWORD', defaultValue: '');
     _keyPassword = const String.fromEnvironment('KEY_PASSWORD', defaultValue: '');
     _keyAlias = const String.fromEnvironment('KEY_ALIAS', defaultValue: '');
+
+    // Ako nisu postavljeni iz --dart-define, pokušaj iz .env fajla
+    if (_storePassword.isEmpty) {
+      _storePassword = dotenv.env['KEYSTORE_PASSWORD'] ?? '';
+    }
+    if (_keyPassword.isEmpty) {
+      _keyPassword = dotenv.env['KEY_PASSWORD'] ?? '';
+    }
+    if (_keyAlias.isEmpty) {
+      _keyAlias = dotenv.env['KEY_ALIAS'] ?? '';
+    }
 
     // 🔐 VAŽNO: Keystore kredencijali MORAJU biti postavljeni!
     // Nikada se ne postavljaju default vrednosti jer su to tajne!
     if (_storePassword.isEmpty || _keyPassword.isEmpty || _keyAlias.isEmpty) {
       throw Exception(
-          '❌ Keystore kredencijali nisu postavljeni! Postavite KEYSTORE_PASSWORD, KEY_PASSWORD i KEY_ALIAS kao --dart-define varijable pri pokretanju aplikacije.');
+          '❌ Keystore kredencijali nisu postavljeni! Postavite KEYSTORE_PASSWORD, KEY_PASSWORD i KEY_ALIAS u .env fajlu ili kao --dart-define varijable pri pokretanju aplikacije.');
     }
   }
 
