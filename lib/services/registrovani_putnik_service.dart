@@ -328,15 +328,14 @@ class RegistrovaniPutnikService {
 
       final index = _lastValue!.indexWhere((p) => p.id == putnikId);
 
-      debugPrint('🔄 [RegistrovaniPutnik] Updating putnik: $putnikId, newRecord keys: ${newRecord.keys.toList()}');
       if (newRecord.containsKey('polasci_po_danu')) {
-        debugPrint('   📋 polasci_po_danu changed: ${newRecord['polasci_po_danu']}');
+        debugPrint('✅ [RegistrovaniPutnik] Realtime update - polasci_po_danu changed');
       }
 
-      // Special debug for TEST putniki
+      // Poseban debug za reset akciju
       final putnikIme = newRecord['putnik_ime'] as String? ?? (index >= 0 ? _lastValue![index].putnikIme : '');
-      if (putnikIme.contains('TEST') || putnikIme.contains('AI')) {
-        debugPrint('   ✨ TEST PUTNIK UPDATE: $putnikIme | id=$putnikId | index=$index');
+      if (newRecord['status'] == 'radi' && newRecord.containsKey('polasci_po_danu')) {
+        debugPrint('🔧 [RegistrovaniPutnik] RESET ACTION: $putnikIme - status=${'radi'}, polasci ažurirani');
       }
 
       // Merge sa stareom vredošću ako postoji lokalno
@@ -1648,11 +1647,16 @@ class RegistrovaniPutnikService {
       );
 
       // ✅ FIX: Sačuva original JSON kao string (polasciPoDanuOriginal će biti prepisana)
+      final jsonString = jsonEncode(polasci);
+      debugPrint('🔧 [resetPutnikCard] Ažuriram $imePutnika - polasci_po_danu: $jsonString');
+      
       await _supabase.from('registrovani_putnici').update({
         'status': 'radi',
-        'polasci_po_danu': jsonEncode(polasci), // ✅ Konvertuj Map u JSON string
+        'polasci_po_danu': jsonString, // ✅ Konvertuj Map u JSON string
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('putnik_ime', imePutnika);
+      
+      debugPrint('✅ [resetPutnikCard] Uspešno ažuriran $imePutnika');
     }
   }
 
