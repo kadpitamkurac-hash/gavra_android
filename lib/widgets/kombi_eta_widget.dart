@@ -181,9 +181,6 @@ class _KombiEtaWidgetState extends State<KombiEtaWidget> {
         }
       }
 
-      // DEBUG: Štampaj šta je pronađeno
-      debugPrint('🚐 KombiEtaWidget: putnikIme=${widget.putnikIme}, eta=$eta, putniciEta=$putniciEta');
-
       setState(() {
         _isActive = true;
         _vozacStartovaoRutu = hasEtaData;

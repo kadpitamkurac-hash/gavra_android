@@ -180,14 +180,8 @@ class RegistrovaniPutnikService {
     String? grad,
     String? vreme,
   }) {
-    debugPrint('📡 [streamKombinovaniPutniciFiltered] Called with isoDate=$isoDate, grad=$grad, vreme=$vreme');
-    if (isoDate != null) {
-      final dayAbbr = _isoDateToDayAbbr(isoDate);
-      debugPrint('🔄 [streamKombinovaniPutniciFiltered] isoDate $isoDate converts to dayAbbr: $dayAbbr');
-    }
     return streamAktivniRegistrovaniPutnici().map((registrovani) {
       final allPutnici = <Putnik>[];
-      int count = 0;
 
       for (final item in registrovani) {
         final dayAbbr = isoDate != null ? _isoDateToDayAbbr(isoDate) : null;
@@ -195,19 +189,8 @@ class RegistrovaniPutnikService {
             ? Putnik.fromRegistrovaniPutniciMultipleForDay(item.toMap(), dayAbbr, isoDate: isoDate)
             : Putnik.fromRegistrovaniPutniciMultiple(item.toMap());
 
-        // Debug: Check if "AI RADNIK TEST" has otkazanZaPolazak
-        for (final p in registrovaniPutnici) {
-          if (p.ime.contains('TEST') || p.ime.contains('AI')) {
-            debugPrint(
-                '📍 [streamMap] ✨ TEST PUTNIK: ${p.ime} | grad=${p.grad} | dan=${p.dan} | polazak=${p.polazak} | otkazanZaPolazak=${p.otkazanZaPolazak} | status=${p.status} | jeOtkazan=${p.jeOtkazan}');
-          }
-          count++;
-        }
-
         allPutnici.addAll(registrovaniPutnici);
       }
-
-      debugPrint('📡 [streamMap] Total ${allPutnici.length} putnici emitted');
 
       // Filter by grad if provided
       if (grad != null) {
@@ -279,18 +262,15 @@ class RegistrovaniPutnikService {
     debugPrint('🔗 [RegistrovaniPutnik] Setup realtime subscription...');
     // Koristi centralizovani RealtimeManager
     _sharedSubscription = RealtimeManager.instance.subscribe('registrovani_putnici').listen((payload) {
-      debugPrint('🔄 [RegistrovaniPutnik] Payload primljen: ${payload.eventType}');
       _handleRealtimeUpdate(payload);
     }, onError: (error) {
       debugPrint('❌ [RegistrovaniPutnik] Stream error: $error');
     });
-    debugPrint('✅ [RegistrovaniPutnik] Realtime subscription postavljena');
   }
 
   /// 🔄 Handle realtime update koristeći payload umesto full refetch
   static void _handleRealtimeUpdate(PostgresChangePayload payload) {
     if (_lastValue == null) {
-      debugPrint('⚠️ [RegistrovaniPutnik] Nema inicijalne vrednosti, preskačem update');
       return;
     }
 
@@ -305,7 +285,6 @@ class RegistrovaniPutnikService {
         _handleUpdate(newRecord, oldRecord);
         break;
       default:
-        debugPrint('⚠️ [RegistrovaniPutnik] Nepoznat event type: ${payload.eventType}');
         break;
     }
   }
@@ -381,18 +360,15 @@ class RegistrovaniPutnikService {
         if (index == -1) {
           // Možda je bio neaktivan, a sada je aktivan - dodaj
           _lastValue!.add(updatedPutnik);
-          debugPrint('✅ [RegistrovaniPutnik] UPDATE: Dodan ${updatedPutnik.putnikIme} (sada aktivan)');
         } else {
           // Update postojeći
           _lastValue![index] = updatedPutnik;
-          debugPrint('✅ [RegistrovaniPutnik] UPDATE: Ažuriran ${updatedPutnik.putnikIme}');
         }
         _lastValue!.sort((a, b) => a.putnikIme.compareTo(b.putnikIme));
       } else {
         // Ukloni iz liste ako postoji
         if (index != -1) {
           _lastValue!.removeAt(index);
-          debugPrint('✅ [RegistrovaniPutnik] UPDATE: Uklonjen ${updatedPutnik.putnikIme} (više ne zadovoljava filter)');
         }
       }
 
@@ -406,7 +382,6 @@ class RegistrovaniPutnikService {
   static void _emitUpdate() {
     if (_sharedController != null && !_sharedController!.isClosed) {
       _sharedController!.add(List.from(_lastValue!));
-      debugPrint('🔊 [RegistrovaniPutnik] Stream emitovao update sa ${_lastValue!.length} putnika');
     }
   }
 

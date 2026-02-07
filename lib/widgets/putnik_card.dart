@@ -1316,17 +1316,6 @@ class _PutnikCardState extends State<PutnikCard> {
 
   @override
   Widget build(BuildContext context) {
-    // DEBUG: Log karticast status - SPECIAL DEBUG FOR TEST PUTNICI
-    final isTestPutnik = _putnik.ime.contains('TEST') || _putnik.ime.contains('AI');
-    if (isTestPutnik || (_putnik.ime.length > 3 && _putnik.ime[0].toUpperCase() == _putnik.ime[0])) {
-      final cardState = CardColorHelper.getCardStateWithDriver(_putnik, widget.currentDriver);
-      debugPrint(
-          '🎨 [PutnikCard] BUILD: ${_putnik.ime} | grad=${_putnik.grad} | polazak=${_putnik.polazak} | cardState=$cardState | otkazanZaPolazak=${_putnik.otkazanZaPolazak} | status=${_putnik.status} | jeOtkazan=${_putnik.jeOtkazan}');
-    }
-
-    // Proverava uslove za prikazivanje X ikone
-    if (_putnik.ime == 'Ljilla') {}
-
     // 🎨 BOJE KARTICE - koristi CardColorHelper sa proverom vozača
     final BoxDecoration cardDecoration = CardColorHelper.getCardDecorationWithDriver(
       _putnik,
