@@ -328,16 +328,6 @@ class RegistrovaniPutnikService {
 
       final index = _lastValue!.indexWhere((p) => p.id == putnikId);
 
-      if (newRecord.containsKey('polasci_po_danu')) {
-        debugPrint('✅ [RegistrovaniPutnik] Realtime update - polasci_po_danu changed');
-      }
-
-      // Poseban debug za reset akciju
-      final putnikIme = newRecord['putnik_ime'] as String? ?? (index >= 0 ? _lastValue![index].putnikIme : '');
-      if (newRecord['status'] == 'radi' && newRecord.containsKey('polasci_po_danu')) {
-        debugPrint('🔧 [RegistrovaniPutnik] RESET ACTION: $putnikIme - status=${'radi'}, polasci ažurirani');
-      }
-
       // Merge sa starom vredošću ako postoji lokalno
       Map<String, dynamic> mergedRecord = {};
       if (index != -1) {
@@ -400,8 +390,6 @@ class RegistrovaniPutnikService {
         if (index != -1) {
           _lastValue!.removeAt(index);
           debugPrint('❌ [_handleUpdate] Uklonio sam ${mergedRecord['putnik_ime']} iz _lastValue');
-        } else {
-          debugPrint('⚠️ [_handleUpdate] ${mergedRecord['putnik_ime']} se ne uključuje (aktivan=$aktivan, obrisan=$obrisan, isDuplicate=$isDuplicate)');
         }
       }
 
@@ -414,12 +402,6 @@ class RegistrovaniPutnikService {
   /// 🔊 Emit update u stream
   static void _emitUpdate() {
     if (_sharedController != null && !_sharedController!.isClosed) {
-      // Debug: Log šta emitujemo
-      debugPrint('📤 [_emitUpdate] POČINJEMO EMIT: ${_lastValue!.length} putnika');
-      for (int i = 0; i < _lastValue!.length; i++) {
-        final p = _lastValue![i];
-        debugPrint('  📤 [$i] ${p.putnikIme}');
-      }
       _sharedController!.add(List.from(_lastValue!));
     }
   }
