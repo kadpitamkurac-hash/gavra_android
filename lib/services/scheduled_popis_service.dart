@@ -142,7 +142,6 @@ class ScheduledPopisService {
           vozac: popisDataRaw.vozac,
           datum: datum,
           ukupanPazar: popisDataRaw.ukupanPazar,
-          sitanNovac: popisDataRaw.sitanNovac,
           otkazaniPutnici: popisDataRaw.otkazaniPutnici,
           pokupljeniPutnici: popisDataRaw.pokupljeniPutnici,
           naplaceniDnevni: popisDataRaw.naplaceniDnevni,

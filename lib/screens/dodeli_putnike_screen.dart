@@ -7,7 +7,7 @@ import '../config/route_config.dart';
 import '../globals.dart';
 import '../models/putnik.dart';
 import '../services/kapacitet_service.dart';
-import '../services/putnik_service.dart';
+import '../services/registrovani_putnik_service.dart';
 import '../services/route_service.dart'; // 🚐 Dinamički satni redoslijedi
 import '../services/theme_manager.dart';
 import '../services/vreme_vozac_service.dart'; // 🆕 Per-vreme dodeljivanje
@@ -31,7 +31,7 @@ class DodeliPutnikeScreen extends StatefulWidget {
 }
 
 class _DodeliPutnikeScreenState extends State<DodeliPutnikeScreen> {
-  final PutnikService _putnikService = PutnikService();
+  final RegistrovaniPutnikService _putnikService = RegistrovaniPutnikService();
 
   // Filteri - identično kao HomeScreen
   String _selectedDay = 'Ponedeljak';
@@ -161,7 +161,7 @@ class _DodeliPutnikeScreenState extends State<DodeliPutnikeScreen> {
       // Ekstraktuj isoDate iz starog ključa
       final oldIsoDate = _currentStreamKey!.split('|')[0];
       if (oldIsoDate.isNotEmpty && oldIsoDate != isoDate) {
-        PutnikService.closeStream(isoDate: oldIsoDate);
+        // PutnikService.closeStream(isoDate: oldIsoDate); // Not needed with realtime
       }
     }
 
@@ -171,11 +171,9 @@ class _DodeliPutnikeScreenState extends State<DodeliPutnikeScreen> {
     setState(() => _isLoading = true);
 
     // Stream bez filtera za vreme/grad - da imamo sve putnike za count
-    _putnikSubscription = _putnikService
-        .streamKombinovaniPutniciFiltered(
+    _putnikSubscription = RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
       isoDate: isoDate,
-    )
-        .listen((putnici) {
+    ).listen((putnici) {
       if (mounted) {
         final danAbbrev = app_date_utils.DateUtils.getDayAbbreviation(_selectedDay);
 

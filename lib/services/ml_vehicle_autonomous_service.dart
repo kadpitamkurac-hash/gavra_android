@@ -569,10 +569,12 @@ class MLVehicleAutonomousService extends ChangeNotifier {
 
   Future<void> _loadLearnedPatterns() async {
     try {
-      final Map<String, dynamic>? result =
-          await _supabase.from('ml_config').select().eq('model_name', 'vehicle_patterns').maybeSingle();
-      if (result != null && result['parameters'] != null) {
-        _learnedPatterns.addAll(Map<String, dynamic>.from(result['parameters'] as Map));
+      final List<Map<String, dynamic>> results =
+          await _supabase.from('ml_config').select().eq('model_name', 'vehicle_patterns').eq('is_active', true);
+      for (final result in results) {
+        if (result['parameters'] != null) {
+          _learnedPatterns.addAll(Map<String, dynamic>.from(result['parameters'] as Map));
+        }
       }
     } catch (e) {
       print('⚠️ [ML Lab] Greška pri učitavanju obrazaca: $e');
@@ -621,10 +623,20 @@ class MLVehicleAutonomousService extends ChangeNotifier {
 
   Future<Map<String, dynamic>> _loadLearnedPatternsMap() async {
     try {
-      final result =
-          await _supabase.from('ml_config').select('parameters').eq('model_name', 'vehicle_patterns').maybeSingle();
-      if (result != null && result['parameters'] != null) {
-        return Map<String, dynamic>.from(result['parameters'] as Map);
+      final List<Map<String, dynamic>> results = await _supabase
+          .from('ml_config')
+          .select('parameters')
+          .eq('model_name', 'vehicle_patterns')
+          .eq('is_active', true);
+      if (results.isNotEmpty) {
+        // Spoji sve rezultate u jedan map
+        final Map<String, dynamic> combined = {};
+        for (final result in results) {
+          if (result['parameters'] != null) {
+            combined.addAll(Map<String, dynamic>.from(result['parameters'] as Map));
+          }
+        }
+        return combined;
       }
     } catch (e) {
       print('⚠️ [ML Lab] Greška pri učitavanju obrazaca: $e');

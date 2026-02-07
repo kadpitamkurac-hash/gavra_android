@@ -14,9 +14,9 @@ import '../services/kapacitet_service.dart'; // 🎫 Za broj mesta
 import '../services/local_notification_service.dart'; // 🔔 Za lokalne notifikacije
 import '../services/popis_service.dart'; // 📋 Za popis dana
 import '../services/putnik_push_service.dart'; // 📱 Za push notifikacije putnicima
-import '../services/putnik_service.dart';
 import '../services/realtime_gps_service.dart'; // 🛰️ Za GPS tracking
 import '../services/realtime_notification_service.dart'; // 🔔 Za realtime notifikacije
+import '../services/registrovani_putnik_service.dart';
 import '../services/route_service.dart'; // 🚐 Dinamički satni redoslijedi
 import '../services/smart_navigation_service.dart';
 import '../services/statistika_service.dart';
@@ -37,7 +37,7 @@ import 'tranzit_screen.dart';
 import 'welcome_screen.dart';
 
 /// 🚗 VOZAČ SCREEN - Za Ivan-a
-/// Prikazuje putnike koristeći isti PutnikService stream kao DanasScreen
+/// Prikazuje putnike koristeći RegistrovaniPutnikService stream
 class VozacScreen extends StatefulWidget {
   /// Opcioni parametar - ako je null, koristi trenutnog ulogovanog vozača
   /// Ako je prosleđen, prikazuje ekran kao da je taj vozač ulogovan (admin preview)
@@ -50,8 +50,6 @@ class VozacScreen extends StatefulWidget {
 }
 
 class _VozacScreenState extends State<VozacScreen> {
-  final PutnikService _putnikService = PutnikService();
-
   StreamSubscription<Position>? _driverPositionSubscription;
 
   String _selectedGrad = 'Bela Crkva';
@@ -255,12 +253,20 @@ class _VozacScreenState extends State<VozacScreen> {
 
   // 🎯 REOPTIMIZACIJA RUTE NAKON PROMENE STATUSA PUTNIKA
   Future<void> _reoptimizeAfterStatusChange() async {
+    // 🔄 FORCE REBUILD: Uvek pozovi setState da se UI ažurira sa novim statusima
+    if (mounted) {
+      setState(() {
+        // Force rebuild da se kartice ažuriraju sa novim bojama
+      });
+    }
+
     if (!_isRouteOptimized || _optimizedRoute.isEmpty) return;
 
     // 🔄 BATCH DOHVATI SVEŽE PODATKE IZ BAZE - efikasnije od pojedinačnih poziva
-    final putnikService = PutnikService();
+    final putnikService = RegistrovaniPutnikService();
     final ids = _optimizedRoute.where((p) => p.id != null).map((p) => p.id!).toList();
-    final sveziPutnici = await putnikService.getPutniciByIds(ids);
+    final registrovani = await putnikService.getRegistrovaniPutniciByIds(ids);
+    final sveziPutnici = registrovani.map((r) => Putnik.fromRegistrovaniPutnici(r.toMap())).toList();
 
     // 🔄 UJEDNAČENO SA DANAS_SCREEN: Razdvoji pokupljene/otkazane/tuđe od preostalih
     final pokupljeniIOtkazani = sveziPutnici.where((p) {
@@ -797,7 +803,7 @@ class _VozacScreenState extends State<VozacScreen> {
   Widget _buildOptimizeButton() {
     return StreamBuilder<List<Putnik>>(
       // ✅ Koristi isti stream kao ostatak screen-a
-      stream: _putnikService.streamPutnici(),
+      stream: RegistrovaniPutnikService.streamPutnici(),
       builder: (context, snapshot) {
         // Loading state
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1331,7 +1337,7 @@ class _VozacScreenState extends State<VozacScreen> {
         body: _currentDriver == null
             ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : StreamBuilder<List<Putnik>>(
-                stream: _putnikService.streamKombinovaniPutniciFiltered(
+                stream: RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
                   isoDate: _getWorkingDateIso(),
                   // ✅ BEZ FILTERA - filtriraj client-side
                 ),
@@ -1534,7 +1540,7 @@ class _VozacScreenState extends State<VozacScreen> {
               ),
         // 🎯 BOTTOM NAV BAR
         bottomNavigationBar: StreamBuilder<List<Putnik>>(
-          stream: _putnikService.streamKombinovaniPutniciFiltered(
+          stream: RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
             isoDate: _getWorkingDateIso(),
           ),
           builder: (context, snapshot) {

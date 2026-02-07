@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/daily_checkin_service.dart';
 import '../theme.dart';
 import '../utils/smart_colors.dart';
 import '../utils/vozac_boja.dart';
@@ -79,32 +78,14 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> with TickerProv
   }
 
   Future<void> _submitCheckIn() async {
-    if (_kusurController.text.trim().isEmpty) {
-      _showError('Unesite iznos sitnog novca!');
-      return;
-    }
-
-    final double? iznos = double.tryParse(_kusurController.text.trim());
-
-    if (iznos == null || iznos < 0) {
-      _showError('Unesite valjan iznos za kusur!');
-      return;
-    }
-
     if (mounted) setState(() => _isLoading = true);
 
     try {
-      // 🚀 DIREKTAN POZIV - Opet bez kilometraže
-      await DailyCheckInService.saveCheckIn(widget.vozac, iznos);
+      // Haptic feedback
+      HapticFeedback.lightImpact();
 
+      // Success message
       if (mounted) {
-        // Reset loading state first
-        setState(() => _isLoading = false);
-
-        // Haptic feedback
-        HapticFeedback.lightImpact();
-
-        // Success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -112,7 +93,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> with TickerProv
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Dobro jutro ${widget.vozac}! Uspešno zabeleženo.'),
+                  child: Text('Dobro jutro ${widget.vozac}!'),
                 ),
               ],
             ),
@@ -129,10 +110,10 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> with TickerProv
         });
       }
     } catch (e) {
-      debugPrint('❌ DailyCheckIn Supabase error: $e');
+      debugPrint('❌ DailyCheckIn error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-        _showError('Greška pri čuvanju: $e');
+        _showError('Greška: $e');
       }
     }
   }
@@ -315,7 +296,7 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> with TickerProv
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Unesite iznos sitnog novca za kusur',
+                                'Spremni za novi radni dan?',
                                 style: TextStyle(
                                   color: secondaryTextColor,
                                   fontSize: 16,
@@ -328,103 +309,53 @@ class _DailyCheckInScreenState extends State<DailyCheckInScreen> with TickerProv
 
                       const SizedBox(height: 32),
 
-                      // Input field - Kusur
+                      // Dugme za check-in
                       Container(
+                        width: double.infinity,
+                        height: 60,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: vozacColor.withValues(alpha: 0.2),
+                              color: vozacColor.withValues(alpha: 0.3),
                               blurRadius: 15,
                               spreadRadius: 2,
                             ),
                           ],
                         ),
-                        child: TextField(
-                          controller: _kusurController,
-                          focusNode: _kusurFocusNode,
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(
-                            color: primaryTextColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            labelText: 'Sitan novac (kusur)',
-                            labelStyle: TextStyle(color: vozacColor, fontSize: 14),
-                            hintText: '0',
-                            hintStyle: TextStyle(
-                              color: primaryTextColor.withValues(alpha: 0.4),
-                              fontSize: 24,
-                            ),
-                            suffixText: 'RSD',
-                            suffixStyle: TextStyle(
-                              color: vozacColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            filled: true,
-                            fillColor: lightVozacColor.withValues(alpha: 0.6),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(
-                                color: vozacColor,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 20,
-                            ),
-                          ),
-                          onSubmitted: (_) => _submitCheckIn(),
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Submit button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
                         child: ElevatedButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  HapticFeedback.mediumImpact(); // Dodaj haptic feedback
-                                  _submitCheckIn();
-                                },
+                          onPressed: _isLoading ? null : _submitCheckIn,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: vozacColor,
                             foregroundColor: Colors.white,
-                            elevation: 6,
-                            shadowColor: vozacColor.withValues(alpha: 0.3),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
                           ),
                           child: _isLoading
                               ? const SizedBox(
-                                  height: 24,
                                   width: 24,
+                                  height: 24,
                                   child: CircularProgressIndicator(
                                     color: Colors.white,
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text(
-                                  'Potvrdi',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.0,
-                                  ),
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.check_circle_outline, size: 24),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Započni dan',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),

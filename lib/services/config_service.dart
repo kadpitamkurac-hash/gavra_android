@@ -1,8 +1,8 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 /// 🔐 CONFIG SERVICE
 /// Upravlja kredencijalima aplikacije (Supabase URL, keys, etc.)
 /// Učitava iz .env fajla ili environment varijabli
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ConfigService {
   static final ConfigService _instance = ConfigService._internal();
   factory ConfigService() => _instance;
@@ -15,30 +15,30 @@ class ConfigService {
   String _keyPassword = '';
   String _keyAlias = '';
 
-  /// Inicijalizuj osnovne kredencijale (iz .env fajla ili environment varijabli)
+  /// Inicijalizuj osnovne kredencijale (iz environment varijabli --dart-define ili .env fajla)
   Future<void> initializeBasic() async {
-    // Prvo učitaj .env fajl
+    // Učitaj .env fajl ako postoji
     await dotenv.load(fileName: '.env');
 
-    // Pokušaj da učitaš iz .env fajla
-    _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
-    _supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-    _supabaseServiceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
-
-    // Ako nisu u .env, pokušaj iz environment varijabli (--dart-define)
+    // Učitaj iz environment varijabli (--dart-define), ili iz .env fajla
+    _supabaseUrl = const String.fromEnvironment('SUPABASE_URL', defaultValue: '');
     if (_supabaseUrl.isEmpty) {
-      _supabaseUrl = const String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+      _supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
     }
+
+    _supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
     if (_supabaseAnonKey.isEmpty) {
-      _supabaseAnonKey = const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+      _supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
     }
+
+    _supabaseServiceRoleKey = const String.fromEnvironment('SUPABASE_SERVICE_ROLE_KEY', defaultValue: '');
     if (_supabaseServiceRoleKey.isEmpty) {
-      _supabaseServiceRoleKey = const String.fromEnvironment('SUPABASE_SERVICE_ROLE_KEY', defaultValue: '');
+      _supabaseServiceRoleKey = dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
     }
 
     if (_supabaseUrl.isEmpty || _supabaseAnonKey.isEmpty) {
       throw Exception(
-          'Osnovni kredencijali nisu postavljeni. Postavite SUPABASE_URL i SUPABASE_ANON_KEY u .env fajlu ili kao environment varijable.');
+          'Osnovni kredencijali nisu postavljeni. Postavite SUPABASE_URL i SUPABASE_ANON_KEY kao --dart-define varijable pri pokretanju aplikacije ili dodajte ih u .env fajl.');
     }
 
     // Učitaj keystore podatke
@@ -51,14 +51,12 @@ class ConfigService {
     // Vault credentials više nisu potrebni
   }
 
-  /// Učitaj keystore podatke iz .env fajla ili environment varijabli
+  /// Učitaj keystore podatke iz environment varijabli
   void _loadKeystoreFromEnv() {
-    // Učitaj iz .env fajla
-    _storePassword = dotenv.env['KEYSTORE_PASSWORD'] ??
-        const String.fromEnvironment('KEYSTORE_PASSWORD', defaultValue: 'GavraRelease2024');
-    _keyPassword =
-        dotenv.env['KEY_PASSWORD'] ?? const String.fromEnvironment('KEY_PASSWORD', defaultValue: 'GavraRelease2024');
-    _keyAlias = dotenv.env['KEY_ALIAS'] ?? const String.fromEnvironment('KEY_ALIAS', defaultValue: 'gavra-release-key');
+    // Učitaj iz environment varijabli (--dart-define)
+    _storePassword = const String.fromEnvironment('KEYSTORE_PASSWORD', defaultValue: 'GavraRelease2024');
+    _keyPassword = const String.fromEnvironment('KEY_PASSWORD', defaultValue: 'GavraRelease2024');
+    _keyAlias = const String.fromEnvironment('KEY_ALIAS', defaultValue: 'gavra-release-key');
   }
 
   String getSupabaseUrl() => _supabaseUrl;

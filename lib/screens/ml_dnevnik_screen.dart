@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../services/putnik_service.dart';
+import '../globals.dart' as globals_file;
 import '../services/vozac_mapping_service.dart';
 import '../services/voznje_log_service.dart';
 
@@ -42,8 +42,7 @@ class _MLDnevnikScreenState extends State<MLDnevnikScreen> {
     if (idsToFetch.isEmpty) return;
 
     try {
-      final List<dynamic> response = await PutnikService()
-          .supabase
+      final List<dynamic> response = await globals_file.supabase
           .from('registrovani_putnici')
           .select('id, putnik_ime')
           .inFilter('id', idsToFetch.toList());

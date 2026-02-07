@@ -409,13 +409,21 @@ class MLService {
   /// OVO JE KLJUČ - model UČI iz istorijskih podataka šta je bitno!
   static Future<Map<String, double>> _getLearnedWeightsForScoring() async {
     try {
-      // Pokušaj da učitaš iz baze
-      final result =
-          await _supabase.from('ml_config').select().eq('model_name', 'passenger_scoring_weights').maybeSingle();
+      // Pokušaj da učitaš iz baze - uzmi samo aktivne i najnovije
+      final List<Map<String, dynamic>> results = await _supabase
+          .from('ml_config')
+          .select()
+          .eq('model_name', 'passenger_scoring_weights')
+          .eq('is_active', true)
+          .order('updated_at', ascending: false)
+          .limit(1);
 
-      if (result != null && result['parameters'] != null) {
-        final weightsJson = result['parameters'] as Map<String, dynamic>;
-        return weightsJson.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 1.0));
+      if (results.isNotEmpty) {
+        final result = results.first;
+        if (result['parameters'] != null) {
+          final weightsJson = result['parameters'] as Map<String, dynamic>;
+          return weightsJson.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 1.0));
+        }
       }
     } catch (e) {
       print('⚠️ Using default weights, will learn over time');
@@ -1109,12 +1117,21 @@ class MLService {
   /// Učitaj koeficijente iz baze
   Future<void> loadModelCoefficients() async {
     try {
-      final result = await _supabase.from('ml_config').select().eq('model_name', 'model_coefficients').maybeSingle();
+      final List<Map<String, dynamic>> results = await _supabase
+          .from('ml_config')
+          .select()
+          .eq('model_name', 'model_coefficients')
+          .eq('is_active', true)
+          .order('updated_at', ascending: false)
+          .limit(1);
 
-      if (result != null && result['parameters'] != null) {
-        final coefficientsJson = result['parameters'] as Map<String, dynamic>;
-        _modelCoefficients = coefficientsJson.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 0.0));
-        print('✅ Model coefficients loaded from database');
+      if (results.isNotEmpty) {
+        final result = results.first;
+        if (result['parameters'] != null) {
+          final coefficientsJson = result['parameters'] as Map<String, dynamic>;
+          _modelCoefficients = coefficientsJson.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 0.0));
+          print('✅ Model coefficients loaded from database');
+        }
       }
     } catch (e) {
       print('⚠️ Could not load coefficients: $e');
@@ -1453,13 +1470,21 @@ class MLService {
 
   static Future<void> _loadModelCoefficients() async {
     try {
-      final result =
-          await _supabase.from('ml_config').select().eq('model_name', 'occupancy_model_coefficients').maybeSingle();
+      final List<Map<String, dynamic>> results = await _supabase
+          .from('ml_config')
+          .select()
+          .eq('model_name', 'occupancy_model_coefficients')
+          .eq('is_active', true)
+          .order('updated_at', ascending: false)
+          .limit(1);
 
-      if (result != null && result['parameters'] != null) {
-        final data = result['parameters'] as Map<String, dynamic>;
-        _modelCoefficients = data.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 0.0));
-        print('📂 Loaded ${_modelCoefficients.length} coefficients from Supabase');
+      if (results.isNotEmpty) {
+        final result = results.first;
+        if (result['parameters'] != null) {
+          final data = result['parameters'] as Map<String, dynamic>;
+          _modelCoefficients = data.map((k, v) => MapEntry(k, double.tryParse(v.toString()) ?? 0.0));
+          print('📂 Loaded ${_modelCoefficients.length} coefficients from Supabase');
+        }
       }
     } catch (e) {
       print('⚠️ Failed to load model coefficients: $e');

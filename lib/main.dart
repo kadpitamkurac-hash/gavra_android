@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // 📱 Za Edge-to-Edge prikaz (Android 15+)
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_api_availability/google_api_availability.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,7 +16,6 @@ import 'services/adresa_supabase_service.dart';
 import 'services/app_settings_service.dart'; // 🔧 Podešavanja aplikacije (nav bar tip)
 import 'services/battery_optimization_service.dart'; // 🔋 Huawei/Xiaomi battery warning
 import 'services/cache_service.dart';
-import 'services/daily_checkin_service.dart'; // 📋 Daily check-in kusur tracking
 import 'services/firebase_service.dart';
 import 'services/huawei_push_service.dart';
 import 'services/kapacitet_service.dart'; // 🎫 Realtime kapacitet
@@ -260,7 +260,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     VoznjeLogService.dispose();
     MLVehicleAutonomousService.disposeRealtime();
     SlobodnaMestaService.dispose();
-    DailyCheckInService.dispose();
     AppSettingsService.dispose();
     KapacitetService.stopGlobalRealtimeListener();
     super.dispose();
@@ -314,6 +313,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           debugShowCheckedModeBanner: false,
           theme: themeData, // Light tema
           // Samo jedna tema - nema dark mode
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('sr', 'RS'), // Serbian
+            Locale('en', 'US'), // English
+          ],
           navigatorObservers: const [],
           home: _buildHome(),
         );

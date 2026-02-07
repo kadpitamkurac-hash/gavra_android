@@ -19,7 +19,6 @@ import '../services/haptic_service.dart';
 import '../services/kapacitet_service.dart'; // 🎫 Kapacitet za bottom nav bar
 import '../services/local_notification_service.dart';
 import '../services/printing_service.dart';
-import '../services/putnik_service.dart'; // ⏪ VRAĆEN na stari servis zbog grešaka u novom
 import '../services/racun_service.dart';
 import '../services/realtime/realtime_manager.dart';
 import '../services/realtime_notification_service.dart';
@@ -56,7 +55,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Logging using dlog function from logging.dart
-  final PutnikService _putnikService = PutnikService(); // ⏪ VRAĆEN na stari servis zbog grešaka u novom
+  final RegistrovaniPutnikService _putnikService = RegistrovaniPutnikService();
 
   bool _isLoading = true;
   // bool _isAddingPutnik = false; // previously used loading state; now handled local to dialog
@@ -1718,13 +1717,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                           brojMesta: brojMesta, // 🆕 Prosleđujemo broj rezervisanih mesta
                                         );
 
-                                        // Duplikat provera se vrši u PutnikService.dodajPutnika()
-                                        await _putnikService.dodajPutnika(
+                                        // Duplikat provera se vrši u RegistrovaniPutnikService.dodajTerminZaPutnika()
+                                        await RegistrovaniPutnikService().dodajTerminZaPutnika(
                                           putnik,
                                           skipKapacitetCheck: AdminSecurityService.isAdmin(_currentDriver),
                                         );
 
-                                        // Supabase realtime automatski triggeruje refresh
+                                        // Force refresh samo trenutnog stream-a nakon dodavanja putnika
+                                        // Umesto clearCache koji čisti sve, osvežavamo samo trenutni dan
+                                        // final targetDateIso = _getTargetDateIsoFromSelectedDay(_selectedDay);
+                                        // RegistrovaniPutnikService.closeStream(isoDate: targetDateIso); // Not needed with realtime
+
+                                        // Automatski izaberi vreme i grad novog putnika u bottom nav baru
+                                        if (mounted) {
+                                          setState(() {
+                                            _selectedVreme = putnik.polazak;
+                                            _selectedGrad = putnik.grad;
+                                          });
+                                        }
 
                                         if (!context.mounted) return;
 
@@ -1982,7 +1992,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: StreamBuilder<List<Putnik>>(
-        stream: _putnikService.streamKombinovaniPutniciFiltered(
+        stream: RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
           isoDate: _getTargetDateIsoFromSelectedDay(_selectedDay),
           // grad i vreme NAMERNO IZOSTAVLJENI - treba nam SVA vremena za bottom nav bar
         ),
@@ -2623,6 +2633,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             currentDriver: _currentDriver!,
                             selectedGrad: _selectedGrad,
                             selectedVreme: _selectedVreme,
+                            selectedDan: _selectedDay,
                             onPutnikStatusChanged: () {
                               if (mounted) setState(() {});
                             },

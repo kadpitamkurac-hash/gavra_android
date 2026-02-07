@@ -14,8 +14,8 @@ import '../models/registrovani_putnik.dart';
 import '../services/cena_obracun_service.dart';
 import '../services/local_notification_service.dart'; // 🔔 Lokalne notifikacije
 import '../services/putnik_push_service.dart'; // 📱 Push notifikacije za putnike
-import '../services/putnik_service.dart'; // 🏖️ Za bolovanje/godišnji
 import '../services/realtime/realtime_manager.dart';
+import '../services/registrovani_putnik_service.dart';
 import '../services/seat_request_service.dart';
 import '../services/slobodna_mesta_service.dart'; // 🎫 Provera slobodnih mesta
 import '../services/theme_manager.dart';
@@ -103,10 +103,7 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
     WeatherService.refreshAll(); // 🌤️ Učitaj vremensku prognozu
     _setupRealtimeListener(); // 🎯 Sluša promene statusa u realtime
 
-    // 📅 Proveri podsetnik za raspored
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkWeeklyScheduleReminder();
-    });
+    // 📅 Podsetnik za raspored uklonjen
   }
 
   /// 🔄 Proverava da li je vreme isteklo (za automatsko otkazivanje)
@@ -483,45 +480,6 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
       }
     } catch (e) {
       debugPrint('❌ [Cleanup] Greška: $e');
-    }
-  }
-
-  // 📅 PROVERA NEDELJNOG RASPODA
-  Future<void> _checkWeeklyScheduleReminder() async {
-    // 1. Proveri tip putnika (samo za radnike i ucenike)
-    final tip = (_putnikData['tip'] ?? '').toString().toLowerCase();
-    if (!tip.contains('radnik') && !tip.contains('ucenik')) {
-      return;
-    }
-
-    // 2. Izračunaj vreme poslednjeg reseta (Petak ponoć / Subota 00:00)
-    final now = DateTime.now();
-    // Weekday: Mon=1, ..., Fri=5, Sat=6, Sun=7
-    int diff = (now.weekday - DateTime.saturday) % 7;
-    if (diff < 0) diff += 7;
-    final lastResetDate = now.subtract(Duration(days: diff));
-    // Reset na 00:00:00
-    final lastResetTime = DateTime(lastResetDate.year, lastResetDate.month, lastResetDate.day);
-
-    // 3. Proveri SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final lastShownMs = prefs.getInt('last_schedule_reminder_timestamp') ?? 0;
-    final lastShownTime = DateTime.fromMillisecondsSinceEpoch(lastShownMs);
-
-    // Ako je poslednji put prikazano PRE poslednjeg reseta -> prikaži ponovo
-    if (lastShownTime.isBefore(lastResetTime) && mounted) {
-      await GavraUI.showInfoDialog(
-        context,
-        title: '📅 Novi raspored',
-        message: 'Stigao je novi nedeljni ciklus!\n\n'
-            'Molimo vas da potvrdite ili ažurirate vaša vremena vožnje za sledeću nedelju, '
-            'kako bismo na vreme organizovali prevoz.',
-        icon: Icons.calendar_month,
-        buttonText: 'UREDU',
-      );
-
-      // 4. Ažuriraj timestamp da ne prikazuje ponovo do sledećeg reset-a
-      await prefs.setInt('last_schedule_reminder_timestamp', now.millisecondsSinceEpoch);
     }
   }
 
@@ -1098,7 +1056,7 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
       final putnikId = _putnikData['id']?.toString();
       if (putnikId == null) return;
 
-      await PutnikService().oznaciBolovanjeGodisnji(
+      await RegistrovaniPutnikService().oznaciBolovanjeGodisnji(
         putnikId,
         noviStatus,
         'self', // Radnik sam sebi menja status
@@ -2065,27 +2023,6 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
   /// - BC radnici: odmah provera mesta (bez čekanja)
   /// - VS svi: odmah čuvanje bez provere
   Future<void> _updatePolazak(String dan, String tipGrad, String? novoVreme) async {
-    // 📅 BLOKADA PETKOM (za učenike i radnike)
-    // Ako je danas PETAK, zabrani menjanje bilo kog dana osim današnjeg (petka),
-    // jer se petkom vrši priprema za sledeću nedelju.
-    final now = DateTime.now();
-    if (now.weekday == DateTime.friday && dan != 'pet') {
-      final tip = (_putnikData['tip'] ?? '').toString().toLowerCase();
-
-      // Samo za radnike i učenike
-      if (tip.contains('radnik') || tip.contains('ucenik')) {
-        await GavraUI.showInfoDialog(
-          context,
-          title: 'Obrada podataka',
-          message:
-              'Svakog petka vršimo sistemsku obradu podataka i održavanje, zbog čega su izmene rasporeda privremeno onemogućene.\n\n'
-              'Ovo je redovan nedeljni proces. Mogućnost zakazivanja termina za narednu nedelju biće ponovo dostupna od subote ujutru.',
-          icon: Icons.settings_system_daydream,
-        );
-        return; // 🛑 PREKINI IZVRŠAVANJE, NE MENJAJ NIŠTA
-      }
-    }
-
     debugPrint('🚀 [BC] _updatePolazak pozvan: dan=$dan, tipGrad=$tipGrad, novoVreme=$novoVreme');
 
     // 🔔 PROVERA NOTIFIKACIJA PRE ZAKAZIVANJA
@@ -2197,6 +2134,13 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
           // Asinhrono obavesti (ne blokiraj UI)
           _notifyWaitingPassengers(staroVremeStr, dan);
         }
+
+        // 🆕 OSVEŽI UI ODMAH - prikaži otkazano pre čuvanja u bazu
+        if (mounted) {
+          setState(() {
+            _putnikData['polasci_po_danu'] = polasci;
+          });
+        }
       } else {
         // Ako postavlja novo vreme, očisti otkazano
         final otkazanoKey = '${tipGrad}_otkazano';
@@ -2244,13 +2188,32 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
               .update({'polasci_po_danu': mergedPolasci, 'radni_dani': noviRadniDani}).eq('id', putnikId);
 
           // 🆕 INSERT U SEAT_REQUESTS TABELU ZA BACKEND OBRADU
-          await SeatRequestService.insertSeatRequest(
+          final ok = await SeatRequestService.insertSeatRequest(
             putnikId: putnikId,
             dan: dan,
             vreme: novoVreme,
             grad: 'bc',
             brojMesta: _putnikData['broj_mesta'] ?? 1,
           );
+
+          if (!ok) {
+            // Rollback pending markers and inform user
+            try {
+              mergedPolasci[dan]['bc_status'] = null;
+              mergedPolasci[dan]['bc_ceka_od'] = null;
+              await supabase.from('registrovani_putnici').update({'polasci_po_danu': mergedPolasci}).eq('id', putnikId);
+            } catch (_) {}
+
+            if (mounted) {
+              GavraUI.showSnackBar(
+                context,
+                message: 'Greška pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+                type: GavraNotificationType.error,
+              );
+            }
+            debugPrint('❌ [BC] UČENIK: Insert seat request failed for $putnikId');
+            return; // stop further processing in this handler
+          }
 
           // 📝 LOG U DNEVNIK
           try {
@@ -2295,13 +2258,31 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
               .update({'polasci_po_danu': mergedPolasci, 'radni_dani': noviRadniDani}).eq('id', putnikId);
 
           // 🆕 INSERT U SEAT_REQUESTS TABELU ZA BACKEND OBRADU
-          await SeatRequestService.insertSeatRequest(
+          final ok = await SeatRequestService.insertSeatRequest(
             putnikId: putnikId,
             dan: dan,
             vreme: novoVreme,
             grad: 'bc',
             brojMesta: _putnikData['broj_mesta'] ?? 1,
           );
+
+          if (!ok) {
+            try {
+              mergedPolasci[dan]['bc_status'] = null;
+              mergedPolasci[dan]['bc_ceka_od'] = null;
+              await supabase.from('registrovani_putnici').update({'polasci_po_danu': mergedPolasci}).eq('id', putnikId);
+            } catch (_) {}
+
+            if (mounted) {
+              GavraUI.showSnackBar(
+                context,
+                message: 'Greška pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+                type: GavraNotificationType.error,
+              );
+            }
+            debugPrint('❌ [BC] RADNIK: Insert seat request failed for $putnikId');
+            return;
+          }
 
           // 📝 LOG U DNEVNIK
           try {
@@ -2343,13 +2324,31 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
               .update({'polasci_po_danu': mergedPolasci, 'radni_dani': noviRadniDani}).eq('id', putnikId);
 
           // 🆕 INSERT U SEAT_REQUESTS TABELU ZA BACKEND OBRADU
-          await SeatRequestService.insertSeatRequest(
+          final ok = await SeatRequestService.insertSeatRequest(
             putnikId: putnikId,
             dan: dan,
             vreme: novoVreme,
             grad: 'bc',
             brojMesta: _putnikData['broj_mesta'] ?? 1,
           );
+
+          if (!ok) {
+            try {
+              mergedPolasci[dan]['bc_status'] = null;
+              mergedPolasci[dan]['bc_ceka_od'] = null;
+              await supabase.from('registrovani_putnici').update({'polasci_po_danu': mergedPolasci}).eq('id', putnikId);
+            } catch (_) {}
+
+            if (mounted) {
+              GavraUI.showSnackBar(
+                context,
+                message: 'Greška pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+                type: GavraNotificationType.error,
+              );
+            }
+            debugPrint('🎯 [BC] DNEVNI: Insert seat request failed for $putnikId');
+            return;
+          }
 
           // 📝 LOG U DNEVNIK
           try {
@@ -2399,13 +2398,31 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
               .update({'polasci_po_danu': mergedPolasci, 'radni_dani': noviRadniDani}).eq('id', putnikId);
 
           // 🆕 INSERT U SEAT_REQUESTS TABELU ZA BACKEND OBRADU
-          await SeatRequestService.insertSeatRequest(
+          final ok = await SeatRequestService.insertSeatRequest(
             putnikId: putnikId,
             dan: dan,
             vreme: novoVreme,
             grad: 'vs',
             brojMesta: _putnikData['broj_mesta'] ?? 1,
           );
+
+          if (!ok) {
+            try {
+              mergedPolasci[dan]['vs_status'] = null;
+              mergedPolasci[dan]['vs_ceka_od'] = null;
+              await supabase.from('registrovani_putnici').update({'polasci_po_danu': mergedPolasci}).eq('id', putnikId);
+            } catch (_) {}
+
+            if (mounted) {
+              GavraUI.showSnackBar(
+                context,
+                message: 'Greška pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+                type: GavraNotificationType.error,
+              );
+            }
+            debugPrint('🎯 [VS] Insert seat request failed for $putnikId');
+            return;
+          }
 
           // 📝 LOG U DNEVNIK
           try {

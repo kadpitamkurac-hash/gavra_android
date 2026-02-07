@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import '../services/adresa_supabase_service.dart'; // DODATO za fallback učitavanje adrese
 import '../services/vozac_mapping_service.dart'; // DODATO za UUID<->ime konverziju
 import '../services/vreme_vozac_service.dart'; // ?? Za per-vreme dodeljivanje vozaca
@@ -380,6 +382,12 @@ class Putnik {
     final polazakBC = RegistrovaniHelpers.getPolazakForDay(map, targetDan, 'bc');
     final polazakVS = RegistrovaniHelpers.getPolazakForDay(map, targetDan, 'vs');
 
+    // Debug: Log the targetDan being used
+    if ((map['putnik_ime'] as String? ?? '').contains('TEST')) {
+      debugPrint(
+          '🔍 [_createPutniciForDay] ${map['putnik_ime']}: targetDan=$targetDan, normalizedTarget=$normalizedTarget, isoDate=$isoDate');
+    }
+
     // ? NOVO: Citaj vremena pokupljenja iz polasci_po_danu JSON (samo DANAS)
     final vremePokupljenjaBC = RegistrovaniHelpers.getVremePokupljenjaForDayAndPlace(map, normalizedTarget, 'bc');
     final vremePokupljenjaVS = RegistrovaniHelpers.getVremePokupljenjaForDayAndPlace(map, normalizedTarget, 'vs');
@@ -424,6 +432,11 @@ class Putnik {
     // ?? Proveri da li je putnik otkazan za ovaj dan i grad
     final bcOtkazan = RegistrovaniHelpers.isOtkazanForDayAndPlace(map, normalizedTarget, 'bc');
     final vsOtkazan = RegistrovaniHelpers.isOtkazanForDayAndPlace(map, normalizedTarget, 'vs');
+
+    if (ime.contains('TEST') || ime.contains('AI')) {
+      debugPrint(
+          '✨ [Putnik.fromRegistrovaniPutniciMultipleForDay] $ime | target=$normalizedTarget | bcOtkazan=$bcOtkazan | vsOtkazan=$vsOtkazan | polazakBC=$polazakBC | polazakVS=$polazakVS');
+    }
 
     // ?? Citaj status iz polasci_po_danu JSON-a
     final bcStatus = RegistrovaniHelpers.getStatusForDayAndPlace(map, normalizedTarget, 'bc');

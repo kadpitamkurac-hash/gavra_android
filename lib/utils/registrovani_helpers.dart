@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'grad_adresa_validator.dart';
 
 enum RegistrovaniStatus { active, canceled, vacation, unknown }
@@ -217,27 +219,6 @@ class RegistrovaniHelpers {
     return dayData[vozacKey] as String?;
   }
 
-  /// 🆕 HELPER: Izračunaj poslednji petak u ponoć (reset point)
-  /// Nedelja se resetuje u ponoć petak→subota
-  static DateTime _getLastFridayMidnight() {
-    final now = DateTime.now();
-    // weekday: 1=pon, 2=uto, 3=sre, 4=cet, 5=pet, 6=sub, 7=ned
-    int daysToSubtract;
-    if (now.weekday == 6) {
-      // Subota - petak je bio juče
-      daysToSubtract = 1;
-    } else if (now.weekday == 7) {
-      // Nedelja - petak je bio pre 2 dana
-      daysToSubtract = 2;
-    } else {
-      // Pon-Pet - petak je bio prošle nedelje
-      daysToSubtract = now.weekday + 2; // pon=3, uto=4, sre=5, cet=6, pet=7
-    }
-    final lastFriday = DateTime(now.year, now.month, now.day).subtract(Duration(days: daysToSubtract));
-    // Ponoć petak→subota = petak 24:00 = subota 00:00
-    return DateTime(lastFriday.year, lastFriday.month, lastFriday.day, 0, 0, 0);
-  }
-
   /// 🆕 HELPER: Čitaj status polaska iz polasci_po_danu JSON-a
   /// Vraća 'pending', 'confirmed', 'waiting', ili null ako status ne postoji
   static String? getStatusForDayAndPlace(
@@ -269,8 +250,7 @@ class RegistrovaniHelpers {
   }
 
   /// 🆕 Proveri da li je putnik otkazan za specifičan dan i grad (polazak)
-  /// Vraća true ako postoji timestamp otkazivanja POSLE poslednjeg petka u ponoć
-  /// (resetuje se svake nedelje petak→subota u ponoć)
+  /// Vraća true ako postoji timestamp otkazivanja
   static bool isOtkazanForDayAndPlace(
     Map<String, dynamic> rawMap,
     String dayKratica,
@@ -283,7 +263,8 @@ class RegistrovaniHelpers {
     if (raw is String) {
       try {
         decoded = jsonDecode(raw) as Map<String, dynamic>?;
-      } catch (_) {
+      } catch (e) {
+        debugPrint('❌ [isOtkazanForDayAndPlace] JSON decode error: $e');
         return false;
       }
     } else if (raw is Map<String, dynamic>) {
@@ -292,26 +273,28 @@ class RegistrovaniHelpers {
     if (decoded == null) return false;
 
     final dayData = decoded[dayKratica];
-    if (dayData == null || dayData is! Map) return false;
+    if (dayData == null || dayData is! Map) {
+      debugPrint(
+          '❌ [isOtkazanForDayAndPlace] dayData not found for $dayKratica. Available days: ${decoded.keys.toList()}');
+      return false;
+    }
 
     // Ključ je npr. 'bc_otkazano' ili 'vs_otkazano'
     final otkazanoKey = '${place}_otkazano';
     final otkazanoTimestamp = dayData[otkazanoKey] as String?;
 
-    if (otkazanoTimestamp == null || otkazanoTimestamp.isEmpty) return false;
-
-    // 🆕 FIX: Važi samo ako je otkazano POSLE poslednjeg petka u ponoć
-    try {
-      final otkazanoDate = DateTime.parse(otkazanoTimestamp).toLocal();
-      final resetPoint = _getLastFridayMidnight();
-      return otkazanoDate.isAfter(resetPoint);
-    } catch (_) {
+    if (otkazanoTimestamp == null || otkazanoTimestamp.isEmpty) {
+      debugPrint('❌ [isOtkazanForDayAndPlace] No timestamp for $otkazanoKey. dayData keys: ${dayData.keys.toList()}');
       return false;
     }
+
+    // Vrati true ako postoji timestamp otkazivanja
+    debugPrint('✅ [isOtkazanForDayAndPlace] Found cancellation for $dayKratica/$place: $otkazanoTimestamp');
+    return true;
   }
 
   /// 🆕 Dobij vreme otkazivanja iz polasci_po_danu JSON-a za specifičan dan i grad
-  /// Vraća DateTime ako postoji timestamp otkazivanja POSLE poslednjeg petka u ponoć
+  /// Vraća DateTime ako postoji timestamp otkazivanja
   static DateTime? getVremeOtkazivanjaForDayAndPlace(
     Map<String, dynamic> rawMap,
     String dayKratica,
@@ -341,14 +324,9 @@ class RegistrovaniHelpers {
 
     if (otkazanoTimestamp == null || otkazanoTimestamp.isEmpty) return null;
 
-    // 🆕 FIX: Vrati timestamp samo ako je POSLE poslednjeg petka u ponoć
+    // Vrati parsed timestamp ako postoji
     try {
-      final otkazanoDate = DateTime.parse(otkazanoTimestamp).toLocal();
-      final resetPoint = _getLastFridayMidnight();
-      if (otkazanoDate.isAfter(resetPoint)) {
-        return otkazanoDate;
-      }
-      return null;
+      return DateTime.parse(otkazanoTimestamp).toLocal();
     } catch (_) {
       return null;
     }
@@ -384,7 +362,7 @@ class RegistrovaniHelpers {
   }
 
   /// 🆕 Dobij vreme pokupljanja iz polasci_po_danu JSON-a za specifičan dan i grad
-  /// Vraća DateTime ako postoji timestamp pokupljanja POSLE poslednjeg petka u ponoć
+  /// Vraća DateTime ako postoji timestamp pokupljanja
   static DateTime? getVremePokupljenjaForDayAndPlace(
     Map<String, dynamic> rawMap,
     String dayKratica,
@@ -414,21 +392,16 @@ class RegistrovaniHelpers {
 
     if (pokupljenoTimestamp == null || pokupljenoTimestamp.isEmpty) return null;
 
-    // 🆕 FIX: Vrati timestamp samo ako je POSLE poslednjeg petka u ponoć
+    // Vrati parsed timestamp ako postoji
     try {
-      final pokupljenoDate = DateTime.parse(pokupljenoTimestamp).toLocal();
-      final resetPoint = _getLastFridayMidnight();
-      if (pokupljenoDate.isAfter(resetPoint)) {
-        return pokupljenoDate;
-      }
-      return null;
+      return DateTime.parse(pokupljenoTimestamp).toLocal();
     } catch (_) {
       return null;
     }
   }
 
-  /// 🆕 Dobij ime vozača koji je pokupio iz polasci_po_danu JSON-a za specifičan dan i grad
-  /// Vraća ime vozača samo ako je pokupljeno POSLE poslednjeg petka u ponoć
+  /// Dobij ime vozača koji je pokupio iz polasci_po_danu JSON-a za specifičan dan i grad
+  /// Vraća ime vozača ako postoji u JSON strukturi
   static String? getPokupioVozacForDayAndPlace(
     Map<String, dynamic> rawMap,
     String dayKratica,
