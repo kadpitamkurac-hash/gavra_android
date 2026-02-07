@@ -2327,53 +2327,32 @@ class _PutnikCardState extends State<PutnikCard> {
 
   // 🔄 RESETUJ KARTICU U POČETNO STANJE - triple tap
   Future<void> _handleReset() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Resetuj karticu'),
-        content: Text(
-            'Resetovati ${_putnik.ime} u početno stanje?\n\nOvo će:\n• Ukloniti vreme pokupljenja\n• Resetovati status na "radi"\n• Vratiti karticu u belo stanje'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Ne'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Da, resetuj'),
-          ),
-        ],
-      ),
-    );
+    try {
+      await RegistrovaniPutnikService().resetPutnikCard(
+        _putnik.ime,
+        widget.currentDriver,
+        selectedVreme: _putnik.polazak,
+        selectedGrad: _putnik.grad,
+        targetDan: widget.selectedDan,
+      );
 
-    if (confirm == true) {
-      try {
-        await RegistrovaniPutnikService().resetPutnikCard(
-          _putnik.ime,
-          widget.currentDriver,
-          selectedVreme: _putnik.polazak,
-          selectedGrad: _putnik.grad,
-          targetDan: widget.selectedDan,
+      // Sačekaj malo da se baza ažurira i stream emituje
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (widget.onChanged != null) {
+        widget.onChanged!();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SmartSnackBar.success('${_putnik.ime} resetovan/a u početno stanje', context),
         );
-
-        // Sačekaj malo da se baza ažurira i stream emituje
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        if (widget.onChanged != null) {
-          widget.onChanged!();
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SmartSnackBar.success('${_putnik.ime} resetovan/a u početno stanje', context),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SmartSnackBar.error('Greška pri resetovanju: $e', context),
-          );
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SmartSnackBar.error('Greška pri resetovanju: $e', context),
+        );
       }
     }
   }
