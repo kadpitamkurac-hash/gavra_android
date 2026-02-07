@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/putnik.dart';
-import '../services/putnik_service.dart';
+import '../services/registrovani_putnik_service.dart';
 import '../services/slobodna_mesta_service.dart'; // 🚢 SMART TRANZIT
 import '../services/theme_manager.dart';
 import '../utils/putnik_helpers.dart';
@@ -54,11 +54,9 @@ class _TranzitScreenState extends State<TranzitScreen> with SingleTickerProvider
   }
 
   void _startStream() {
-    _subscription = PutnikService()
-        .streamKombinovaniPutniciFiltered(
+    _subscription = RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
       isoDate: PutnikHelpers.getWorkingDateIso(),
-    )
-        .listen((sviPutnici) {
+    ).listen((sviPutnici) {
       if (!mounted) return;
 
       final Map<String, List<Putnik>> tranzitMap = {};
@@ -273,6 +271,7 @@ class _TranzitScreenState extends State<TranzitScreen> with SingleTickerProvider
                 child: Column(
                   children: trips
                       .map((p) => PutnikCard(
+                            key: ValueKey(p.id),
                             putnik: p,
                             currentDriver: widget.currentDriver,
                           ))

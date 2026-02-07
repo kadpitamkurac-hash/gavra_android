@@ -19,7 +19,6 @@ import '../services/haptic_service.dart';
 import '../services/kapacitet_service.dart'; // 🎫 Kapacitet za bottom nav bar
 import '../services/local_notification_service.dart';
 import '../services/printing_service.dart';
-import '../services/putnik_service.dart'; // ⏪ VRAĆEN na stari servis zbog grešaka u novom
 import '../services/racun_service.dart';
 import '../services/realtime/realtime_manager.dart';
 import '../services/realtime_notification_service.dart';
@@ -56,7 +55,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Logging using dlog function from logging.dart
-  final PutnikService _putnikService = PutnikService(); // ⏪ VRAĆEN na stari servis zbog grešaka u novom
+  final RegistrovaniPutnikService _putnikService = RegistrovaniPutnikService();
 
   bool _isLoading = true;
   // bool _isAddingPutnik = false; // previously used loading state; now handled local to dialog
@@ -1691,9 +1690,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                         });
 
                                         // 🕐 KORISTI SELEKTOVANO VREME SA HOME SCREEN-A
-                                        // ✅ SADA: Mesečna karta = true za SVE tipove (radnik, ucenik, dnevni)
-                                        // Svi tipovi koriste istu logiku i registrovani_putnici tabelu
-                                        const isMesecnaKarta = true;
+                                        // ✅ ISPRAVLJENO: Mesečna karta zavisi od tipa putnika
+                                        final isMesecnaKarta = selectedPutnik!.tip != 'dnevni';
 
                                         // 🆕 Koristi "samo danas" adresu ako je postavljena, inače stalnu
                                         final adresaZaKoristiti = promeniAdresuSamoDanas && samoDanasAdresa != null
@@ -1704,27 +1702,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                             ? samoDanasAdresaId
                                             : null; // Stalna adresa ima adresaId u registrovani_putnici
 
+                                        // 📅 ZA SVE PUTNIKE: Dodaj termin identično (trajni u polasci_po_danu + log u voznje_log)
                                         final putnik = Putnik(
                                           ime: selectedPutnik!.putnikIme,
                                           polazak: _selectedVreme,
                                           grad: _selectedGrad,
                                           dan: _getDayAbbreviation(_selectedDay),
-                                          mesecnaKarta: isMesecnaKarta,
+                                          mesecnaKarta:
+                                              selectedPutnik!.tip != 'dnevni', // true za mesečne, false za dnevne
                                           vremeDodavanja: DateTime.now(),
-                                          dodeljenVozac: _currentDriver!, // Safe non-null assertion nakon validacije
+                                          // dodeljenVozac: _currentDriver!, // UKLONJENO: Automatsko dodeljivanje vozača
                                           adresa: adresaZaKoristiti,
                                           adresaId: adresaIdZaKoristiti, // 🆕 Za brži geocoding
                                           brojTelefona: selectedPutnik!.brojTelefona,
                                           brojMesta: brojMesta, // 🆕 Prosleđujemo broj rezervisanih mesta
                                         );
 
-                                        // Duplikat provera se vrši u PutnikService.dodajPutnika()
-                                        await _putnikService.dodajPutnika(
+                                        // Duplikat provera se vrši u RegistrovaniPutnikService.dodajTerminZaPutnika()
+                                        await RegistrovaniPutnikService().dodajTerminZaPutnika(
                                           putnik,
                                           skipKapacitetCheck: AdminSecurityService.isAdmin(_currentDriver),
                                         );
 
-                                        // Supabase realtime automatski triggeruje refresh
+                                        // Automatski izaberi vreme i grad novog putnika u bottom nav baru
+                                        if (mounted) {
+                                          setState(() {
+                                            _selectedVreme = putnik.polazak;
+                                            _selectedGrad = putnik.grad;
+                                          });
+                                        }
 
                                         if (!context.mounted) return;
 
@@ -1982,7 +1988,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: StreamBuilder<List<Putnik>>(
-        stream: _putnikService.streamKombinovaniPutniciFiltered(
+        stream: RegistrovaniPutnikService.streamKombinovaniPutniciFiltered(
           isoDate: _getTargetDateIsoFromSelectedDay(_selectedDay),
           // grad i vreme NAMERNO IZOSTAVLJENI - treba nam SVA vremena za bottom nav bar
         ),
@@ -2623,6 +2629,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             currentDriver: _currentDriver!,
                             selectedGrad: _selectedGrad,
                             selectedVreme: _selectedVreme,
+                            selectedDan: _selectedDay,
                             onPutnikStatusChanged: () {
                               if (mounted) setState(() {});
                             },

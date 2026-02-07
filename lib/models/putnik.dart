@@ -2,7 +2,6 @@
 
 import '../services/adresa_supabase_service.dart'; // DODATO za fallback učitavanje adrese
 import '../services/vozac_mapping_service.dart'; // DODATO za UUID<->ime konverziju
-import '../services/vreme_vozac_service.dart'; // ?? Za per-vreme dodeljivanje vozaca
 import '../utils/registrovani_helpers.dart';
 
 // Enum za statuse putnika
@@ -62,7 +61,7 @@ class Putnik {
     this.cena, // ? STANDARDIZOVANO: cena umesto iznosPlacanja
     this.naplatioVozac,
     this.pokupioVozac,
-    this.dodeljenVozac,
+    this.dodeljenVozac, // UKLONJENO: Automatsko dodeljivanje vozača - uvek null
     this.vozac,
     required this.grad,
     this.otkazaoVozac,
@@ -150,14 +149,8 @@ class Putnik {
           _getVozacIme(map['vozac_id'] as String?),
       // ? NOVO: Citaj pokupioVozac iz polasci_po_danu (samo DANAS)
       pokupioVozac: RegistrovaniHelpers.getPokupioVozacForDayAndPlace(map, danKratica, place),
-      // ?? dodeljenVozac - 3 nivoa: 1) per-putnik (bc_vozac/vs_vozac), 2) per-vreme, 3) globalni vozac_id
-      dodeljenVozac: _getDodeljenVozacWithPriority(
-        map: map,
-        danKratica: danKratica,
-        place: place,
-        grad: grad,
-        vreme: polazakRaw ?? '',
-      ),
+      // ?? UKLONJENO: Automatsko dodeljivanje vozača
+      dodeljenVozac: null,
       grad: grad,
       adresa: _determineAdresaFromRegistrovani(map, grad), // ? FIX: Prosledujemo grad za konzistentnost
       adresaId: _determineAdresaIdFromRegistrovani(map, grad), // ? NOVO - UUID adrese
@@ -189,7 +182,7 @@ class Putnik {
   final double? cena; // ? STANDARDIZOVANO: cena umesto iznosPlacanja
   final String? naplatioVozac;
   final String? pokupioVozac; // NOVO - vozac koji je pokupljanje izvršio
-  final String? dodeljenVozac;
+  final String? dodeljenVozac; // UKLONJENO: Automatsko dodeljivanje vozača - uvek null
   final String? vozac;
   final String grad;
   final String? otkazaoVozac;
@@ -459,16 +452,8 @@ class Putnik {
           naplatioVozac: naplatioVozacBC ?? _getVozacIme(map['vozac_id'] as String?),
           // ? NOVO: Citaj pokupioVozac iz polasci_po_danu
           pokupioVozac: pokupioVozacBC,
-          // ?? dodeljenVozac - 3 nivoa: 1) per-putnik (bc_vozac), 2) per-vreme, 3) globalni vozac_id
-          dodeljenVozac: polazakBC != null
-              ? _getDodeljenVozacWithPriority(
-                  map: map,
-                  danKratica: normalizedTarget,
-                  place: 'bc',
-                  grad: 'Bela Crkva',
-                  vreme: polazakBC,
-                )
-              : null,
+          // ?? UKLONJENO: Automatsko dodeljivanje vozača
+          dodeljenVozac: null,
           vozac: vozac,
           grad: 'Bela Crkva',
           adresa: finalAdresaBc, // ?? PRIORITET: adresa_danas > stalna adresa
@@ -516,16 +501,8 @@ class Putnik {
           naplatioVozac: naplatioVozacVS ?? _getVozacIme(map['vozac_id'] as String?),
           // ? NOVO: Citaj pokupioVozac iz polasci_po_danu
           pokupioVozac: pokupioVozacVS,
-          // ?? dodeljenVozac - 3 nivoa: 1) per-putnik (vs_vozac), 2) per-vreme, 3) globalni vozac_id
-          dodeljenVozac: polazakVS != null
-              ? _getDodeljenVozacWithPriority(
-                  map: map,
-                  danKratica: normalizedTarget,
-                  place: 'vs',
-                  grad: 'Vršac',
-                  vreme: polazakVS,
-                )
-              : null,
+          // ?? UKLONJENO: Automatsko dodeljivanje vozača
+          dodeljenVozac: null,
           vozac: vozac,
           grad: 'Vršac',
           adresa: finalAdresaVs, // ?? PRIORITET: adresa_danas > stalna adresa
@@ -678,39 +655,6 @@ class Putnik {
     return daniKratice[weekday - 1];
   }
 
-  /// ?? HELPER: Odredi dodel?enog vozaca sa 3 nivoa prioriteta
-  /// 1) Per-putnik per-pravac (bc_vozac/vs_vozac iz polasci_po_danu)
-  /// 2) Per-vreme (iz vreme_vozac tabele - svi putnici na tom terminu)
-  /// 3) Globalni vozac_id (fallback)
-  static String? _getDodeljenVozacWithPriority({
-    required Map<String, dynamic> map,
-    required String danKratica,
-    required String place,
-    required String grad,
-    required String vreme,
-  }) {
-    // 1?? NAJVIŠI PRIORITET: Per-putnik per-pravac per-vreme (bc_5:00_vozac ili vs_14:00_vozac)
-    final perPutnikPerVreme = RegistrovaniHelpers.getDodeljenVozacForDayAndPlace(
-      map,
-      danKratica,
-      place,
-      vreme: vreme, // ?? Prosledivanje vremena za specificno dodeljivanje
-    );
-    if (perPutnikPerVreme != null && perPutnikPerVreme.isNotEmpty) {
-      return perPutnikPerVreme;
-    }
-
-    // 2?? SREDNJI PRIORITET: Per-vreme (iz vreme_vozac tabele)
-    // Koristi sinhroni pristup keširanju - keš MORA biti ucitan pre poziva!
-    final perVreme = VremeVozacService().getVozacZaVremeSync(grad, vreme, danKratica);
-    if (perVreme != null && perVreme.isNotEmpty) {
-      return perVreme;
-    }
-
-    // ? UKLONJEN NAJNIŽI PRIORITET: Globalni vozac_id (reset u ponoc)
-    return null;
-  }
-
   // ? CENTRALIZOVANO: Konvertuj UUID u ime vozaca sa fallback-om
   static String? _getVozacIme(String? uuid) {
     if (uuid == null || uuid.isEmpty) return null;
@@ -757,7 +701,7 @@ class Putnik {
     double? cena,
     String? naplatioVozac,
     String? pokupioVozac,
-    String? dodeljenVozac,
+    String? dodeljenVozac, // UKLONJENO: Automatsko dodeljivanje vozača
     String? vozac,
     String? grad,
     String? otkazaoVozac,
@@ -788,7 +732,7 @@ class Putnik {
       cena: cena ?? this.cena,
       naplatioVozac: naplatioVozac ?? this.naplatioVozac,
       pokupioVozac: pokupioVozac ?? this.pokupioVozac,
-      dodeljenVozac: dodeljenVozac ?? this.dodeljenVozac,
+      dodeljenVozac: dodeljenVozac ?? this.dodeljenVozac, // Uvek null
       vozac: vozac ?? this.vozac,
       grad: grad ?? this.grad,
       otkazaoVozac: otkazaoVozac ?? this.otkazaoVozac,

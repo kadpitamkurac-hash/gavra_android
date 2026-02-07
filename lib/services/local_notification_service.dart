@@ -715,7 +715,11 @@ class LocalNotificationService {
         putnikId: putnikId,
         title: '✅ Mesto osigurano!',
         body: '✅ Mesto osigurano! Vaša rezervacija za $termin je potvrđena. Želimo vam ugodnu vožnju! 🚌',
-        data: {'type': 'bc_alternativa_confirmed', 'termin': termin},
+        data: {
+          'notification_id': 'bc_alternativa_confirmed_${putnikId}_$dan',
+          'type': 'bc_alternativa_confirmed',
+          'termin': termin
+        },
       );
     } catch (e) {
       // 🔇 Ignore errors
@@ -766,7 +770,11 @@ class LocalNotificationService {
         title: '✅ Zahtev primljen',
         body:
             '📨 Vaš zahtev je evidentiran! Proveravamo raspoloživost mesta i javljamo vam se u najkraćem mogućem roku!',
-        data: {'type': 'vs_waiting_confirmed', 'termin': zeljeniTermin},
+        data: {
+          'notification_id': 'vs_waiting_confirmed_${putnikId}_$dan',
+          'type': 'vs_waiting_confirmed',
+          'termin': zeljeniTermin
+        },
       );
     } catch (e) {
       // 🔇 Ignore errors
@@ -963,7 +971,11 @@ class LocalNotificationService {
         putnikId: putnikId,
         title: '✅ [VS] Termin potvrđen',
         body: '✅ Mesto osigurano! Vaša rezervacija za $termin je potvrđena. Želimo vam ugodnu vožnju! 🚌',
-        data: {'type': 'vs_alternativa_confirmed', 'termin': termin},
+        data: {
+          'notification_id': 'vs_alternativa_confirmed_${putnikId}_$dan',
+          'type': 'vs_alternativa_confirmed',
+          'termin': termin
+        },
       );
     } catch (e) {
       // 🔇 Ignore
@@ -1009,16 +1021,23 @@ class LocalNotificationService {
       }).eq('id', putnikId);
 
       // 🆕 INSERT U SEAT_REQUESTS TABELU ZA ML OBRADU
-      try {
-        await SeatRequestService.insertSeatRequest(
-          putnikId: putnikId,
-          dan: dan,
-          vreme: zeljeniTermin,
-          grad: 'vs',
-          brojMesta: 1, // Default za waiting zahteve
-        );
-      } catch (e) {
-        debugPrint('⚠️ Error creating seat request for VS waiting: $e');
+      final ok = await SeatRequestService.insertSeatRequest(
+        putnikId: putnikId,
+        dan: dan,
+        vreme: zeljeniTermin,
+        grad: 'vs',
+        brojMesta: 1, // Default za waiting zahteve
+      );
+
+      if (!ok) {
+        debugPrint('⚠️ Error creating seat request for VS waiting: insert failed');
+        try {
+          await RealtimeNotificationService.sendNotificationToPutnik(
+            putnikId: putnikId,
+            title: '⚠️ Greška',
+            body: 'Došlo je do greške pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+          );
+        } catch (_) {}
       }
 
       // 📝 LOG U DNEVNIK
@@ -1087,16 +1106,23 @@ class LocalNotificationService {
       }).eq('id', putnikId);
 
       // 🆕 INSERT U SEAT_REQUESTS TABELU ZA ML OBRADU
-      try {
-        await SeatRequestService.insertSeatRequest(
-          putnikId: putnikId,
-          dan: dan,
-          vreme: zeljeniTermin,
-          grad: 'vs',
-          brojMesta: 1, // Default za ceka_mesto zahteve
-        );
-      } catch (e) {
-        debugPrint('⚠️ Error creating seat request for VS ceka_mesto: $e');
+      final ok2 = await SeatRequestService.insertSeatRequest(
+        putnikId: putnikId,
+        dan: dan,
+        vreme: zeljeniTermin,
+        grad: 'vs',
+        brojMesta: 1, // Default za ceka_mesto zahteve
+      );
+
+      if (!ok2) {
+        debugPrint('⚠️ Error creating seat request for VS ceka_mesto: insert failed');
+        try {
+          await RealtimeNotificationService.sendNotificationToPutnik(
+            putnikId: putnikId,
+            title: '⚠️ Greška',
+            body: 'Došlo je do greške pri slanju zahteva. Molimo pokušajte ponovo kasnije.',
+          );
+        } catch (_) {}
       }
 
       // 📝 LOG U DNEVNIK
@@ -1119,7 +1145,11 @@ class LocalNotificationService {
         title: '✅ Zahtev primljen',
         body:
             '📨 Vaš zahtev je evidentiran! Proveravamo raspoloživost mesta i javljamo vam se u najkraćem mogućem roku!',
-        data: {'type': 'vs_ceka_mesto_confirmed', 'termin': zeljeniTermin},
+        data: {
+          'notification_id': 'vs_ceka_mesto_confirmed_${putnikId}_$dan',
+          'type': 'vs_ceka_mesto_confirmed',
+          'termin': zeljeniTermin
+        },
       );
     } catch (e) {
       // 🔇 Ignore

@@ -9,8 +9,8 @@ import '../models/putnik.dart';
 import '../utils/grad_adresa_validator.dart';
 import '../utils/putnik_helpers.dart';
 import 'kapacitet_service.dart';
-import 'putnik_service.dart';
 import 'realtime/realtime_manager.dart';
+import 'registrovani_putnik_service.dart';
 import 'voznje_log_service.dart';
 
 /// 🎫 Model za slobodna mesta po polasku
@@ -40,7 +40,7 @@ class SlobodnaMesta {
 
 class SlobodnaMestaService {
   static SupabaseClient get _supabase => supabase;
-  static final _putnikService = PutnikService();
+  static final _putnikService = RegistrovaniPutnikService();
 
   static StreamSubscription? _missingTransitSubscription;
   static final StreamController<List<Map<String, dynamic>>> _missingTransitController =

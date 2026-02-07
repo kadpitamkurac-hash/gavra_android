@@ -4,22 +4,28 @@ class UserAuditService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   /// Logs a user change to the user_daily_changes table
-  Future<void> logUserChange(String putnikId, String changeType) async {
+  /// Now supports only UUID-based registered passengers
+  Future<void> logUserChange(String putnikIdentifier, String changeType) async {
     try {
-      final putnikIdInt = int.tryParse(putnikId);
-      if (putnikIdInt == null) {
-        print('Invalid putnik ID: $putnikId');
+      if (putnikIdentifier.isEmpty) {
+        print('Invalid putnik identifier: $putnikIdentifier');
+        return;
+      }
+
+      // Only UUID-based registered passengers are supported
+      if (!_isUuid(putnikIdentifier)) {
+        print('Only UUID-based passengers are supported: $putnikIdentifier');
         return;
       }
 
       final today = DateTime.now();
       final dateKey = today.toIso8601String().split('T')[0]; // YYYY-MM-DD format
 
-      // Check if record exists for today
+      // For UUID-based registered passengers, use putnik_uuid column
       final existingRecord = await _supabase
           .from('user_daily_changes')
           .select()
-          .eq('putnik_id', putnikIdInt)
+          .eq('putnik_uuid', putnikIdentifier)
           .eq('datum', dateKey)
           .maybeSingle();
 
@@ -32,7 +38,7 @@ class UserAuditService {
       } else {
         // Create new record
         await _supabase.from('user_daily_changes').insert({
-          'putnik_id': putnikIdInt,
+          'putnik_uuid': putnikIdentifier,
           'datum': dateKey,
           'changes_count': 1,
           'last_change_at': today.toIso8601String(),
@@ -42,6 +48,13 @@ class UserAuditService {
       print('Error logging user change: $e');
       // Don't throw error to avoid breaking user operations
     }
+  }
+
+  /// Check if identifier is a UUID (registered passenger)
+  bool _isUuid(String identifier) {
+    // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    return uuidRegex.hasMatch(identifier);
   }
 
   /// Gets today's statistics for all users
@@ -63,18 +76,23 @@ class UserAuditService {
   }
 
   /// Gets change history for a specific user
-  Future<List<Map<String, dynamic>>> getUserChangeHistory(String putnikId) async {
+  /// Now supports only UUID-based registered passengers
+  Future<List<Map<String, dynamic>>> getUserChangeHistory(String putnikIdentifier) async {
     try {
-      final putnikIdInt = int.tryParse(putnikId);
-      if (putnikIdInt == null) {
-        print('Invalid putnik ID: $putnikId');
+      if (putnikIdentifier.isEmpty) {
+        return [];
+      }
+
+      // Only UUID-based registered passengers are supported
+      if (!_isUuid(putnikIdentifier)) {
+        print('Only UUID-based passengers are supported: $putnikIdentifier');
         return [];
       }
 
       final response = await _supabase
           .from('user_daily_changes')
           .select('datum, changes_count, last_change_at')
-          .eq('putnik_id', putnikIdInt)
+          .eq('putnik_uuid', putnikIdentifier)
           .order('datum', ascending: false)
           .limit(30); // Last 30 days
 

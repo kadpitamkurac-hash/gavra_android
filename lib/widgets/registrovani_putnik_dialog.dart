@@ -1380,6 +1380,18 @@ class _RegistrovaniPutnikDialogState extends State<RegistrovaniPutnikDialog> {
   Map<String, Map<String, String?>> _getPolasciPoDanuMap() {
     final Map<String, Map<String, String?>> normalizedPolasci = {};
 
+    // Prvo dodaj postojeće termine (uključujući vikend)
+    if (widget.isEditing && widget.existingPutnik?.polasciPoDanuOriginal != null) {
+      final parsed = RegistrovaniHelpers.parsePolasciPoDanu(widget.existingPutnik!.polasciPoDanuOriginal);
+      parsed.forEach((dan, dayData) {
+        normalizedPolasci[dan] = {
+          'bc': dayData['bc'],
+          'vs': dayData['vs'],
+        };
+      });
+    }
+
+    // Zatim ažuriraj sa vrednostima iz kontrolera (samo radni dani)
     for (final dan in ['pon', 'uto', 'sre', 'cet', 'pet']) {
       final bcRaw = _polazakBcControllers[dan]?.text.trim() ?? '';
       final vsRaw = _polazakVsControllers[dan]?.text.trim() ?? '';

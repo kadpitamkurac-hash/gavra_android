@@ -177,7 +177,8 @@ class AdresaSupabaseService {
   /// Pretraži adrese po nazivu (za autocomplete)
   static Future<List<Adresa>> searchAdrese(String query, {String? grad}) async {
     try {
-      var queryBuilder = supabase.from('adrese').select().ilike('naziv', '%$query%');
+      var queryBuilder =
+          supabase.from('adrese').select().ilike('lower(unaccent(naziv))', 'lower(unaccent(\'%$query%\'))');
 
       if (grad != null) {
         queryBuilder = queryBuilder.eq('grad', grad);

@@ -1,4 +1,6 @@
-﻿import '../services/adresa_supabase_service.dart';
+﻿import 'dart:convert';
+
+import '../services/adresa_supabase_service.dart';
 import '../utils/registrovani_helpers.dart';
 
 /// Model za mesečne putnike - ažurirana verzija
@@ -13,6 +15,7 @@ class RegistrovaniPutnik {
     required this.tip,
     this.tipSkole,
     required this.polasciPoDanu,
+    this.polasciPoDanuOriginal, // 🆕 Originalni JSON sa svim podacima
     this.adresaBelaCrkvaId,
     this.adresaVrsacId,
     this.radniDani = 'pon,uto,sre,cet,pet',
@@ -71,6 +74,10 @@ class RegistrovaniPutnik {
 
   /// Polasci po danu - mapa gde je ključ dan, a vrednost lista vremena polaska
   final Map<String, List<String>> polasciPoDanu;
+
+  /// 🆕 Originalni polasci_po_danu JSON iz baze (čuva sve: otkazivanje, vozače, itd.)
+  /// Ovo je VEOMA BITNO da se ne izbrišu podaci o otkazivanju!
+  final dynamic polasciPoDanuOriginal;
 
   /// UUID reference za adresu u Beloj Crkvi
   final String? adresaBelaCrkvaId;
@@ -170,6 +177,7 @@ class RegistrovaniPutnik {
       tip: map['tip'] as String? ?? 'radnik',
       tipSkole: map['tip_skole'] as String?,
       polasciPoDanu: polasciPoDanu,
+      polasciPoDanuOriginal: map['polasci_po_danu'], // 🆕 Čuva originalni JSON sa svim podacima!
       adresaBelaCrkvaId: map['adresa_bela_crkva_id'] as String?,
       adresaVrsacId: map['adresa_vrsac_id'] as String?,
       radniDani: map['radni_dani'] as String? ?? 'pon,uto,sre,cet,pet',
@@ -211,21 +219,32 @@ class RegistrovaniPutnik {
 
   /// Konvertuje objekat u Map za bazu
   Map<String, dynamic> toMap() {
-    // Build normalized polasci_po_danu structure
-    final Map<String, Map<String, String?>> normalizedPolasci = {};
-    polasciPoDanu.forEach((day, times) {
-      String? bc;
-      String? vs;
-      for (final time in times) {
-        final normalized = RegistrovaniHelpers.normalizeTime(time.split(' ')[0]);
-        if (time.contains('BC')) {
-          bc = normalized;
-        } else if (time.contains('VS')) {
-          vs = normalized;
+    // 🆕 BITNO: Ako postoji originalni JSON (sa otkazivanjem, vozačima, itd.), koristi ga!
+    // Ne radi se sa samo vremenom polaska jer se gube ostali podaci!
+    final Map<String, dynamic> polasciForDB;
+    if (polasciPoDanuOriginal != null) {
+      // Koristi originalni JSON - sve se čuva!
+      polasciForDB = polasciPoDanuOriginal is String
+          ? (jsonDecode(polasciPoDanuOriginal) as Map<String, dynamic>)
+          : polasciPoDanuOriginal as Map<String, dynamic>;
+    } else {
+      // Fallback: Build normalized polasci_po_danu structure (samo vremena)
+      final Map<String, Map<String, String?>> normalizedPolasci = {};
+      polasciPoDanu.forEach((day, times) {
+        String? bc;
+        String? vs;
+        for (final time in times) {
+          final normalized = RegistrovaniHelpers.normalizeTime(time.split(' ')[0]);
+          if (time.contains('BC')) {
+            bc = normalized;
+          } else if (time.contains('VS')) {
+            vs = normalized;
+          }
         }
-      }
-      normalizedPolasci[day] = {'bc': bc, 'vs': vs};
-    });
+        normalizedPolasci[day] = {'bc': bc, 'vs': vs};
+      });
+      polasciForDB = normalizedPolasci;
+    }
 
     // ⚔️ BINARYBITCH CLEAN toMap() - SAMO kolone koje postoje u bazi!
     Map<String, dynamic> result = {
@@ -236,14 +255,12 @@ class RegistrovaniPutnik {
       'broj_telefona_majke': brojTelefonaMajke,
       'tip': tip,
       'tip_skole': tipSkole,
-      'polasci_po_danu': normalizedPolasci,
+      'polasci_po_danu': polasciForDB, // 🆕 Koristi originalni JSON ili generiši novi
       'adresa_bela_crkva_id': adresaBelaCrkvaId,
       'adresa_vrsac_id': adresaVrsacId,
       'radni_dani': radniDani,
       'datum_pocetka_meseca': datumPocetkaMeseca.toIso8601String().split('T')[0],
       'datum_kraja_meseca': datumKrajaMeseca.toIso8601String().split('T')[0],
-      'created_at': createdAt.toUtc().toIso8601String(),
-      'updated_at': updatedAt.toUtc().toIso8601String(),
       'aktivan': aktivan,
       'status': status,
       'obrisan': obrisan,
@@ -263,9 +280,11 @@ class RegistrovaniPutnik {
       // vreme_placanja, pokupljen, placeno - sada u voznje_log
     };
 
-    // Dodaj id samo ako nije prazan i NIJE fallback-uuid (za UPDATE operacije)
-    // Za INSERT operacije, ostavi id da baza generiše UUID
+    // Dodaj timestamp kolone samo za UPDATE operacije (kada postoji ID)
+    // Za INSERT operacije, baza će automatski postaviti created_at i updated_at
     if (id.isNotEmpty && !id.startsWith('fallback-uuid-')) {
+      result['created_at'] = createdAt.toUtc().toIso8601String();
+      result['updated_at'] = updatedAt.toUtc().toIso8601String();
       result['id'] = id;
     }
 

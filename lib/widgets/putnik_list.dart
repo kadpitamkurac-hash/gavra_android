@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../models/putnik.dart';
+import '../utils/card_color_helper.dart';
 import '../utils/putnik_helpers.dart';
 import 'putnik_card.dart';
 
@@ -20,6 +21,7 @@ class PutnikList extends StatelessWidget {
     this.onPokupljen,
     this.selectedGrad,
     this.selectedVreme,
+    this.selectedDan,
     this.isDugovanjaMode = false,
   });
   final bool showActions;
@@ -34,64 +36,44 @@ class PutnikList extends StatelessWidget {
   final VoidCallback? onPokupljen;
   final String? selectedGrad;
   final String? selectedVreme;
+  final String? selectedDan;
 
   // Helper metoda za sortiranje putnika po grupama
-  // Prioritet zavisi od toga da li ima sivih kartica:
+  // Koristi CardColorHelper prioritete: Odsustvo > Otkazano > Plaćeno > Pokupljeno > Tuđi > Nepokupljeno
   // - Ako ima sivih: Moji → Nedodeljeni → Sivi → Plavi → Zeleni → Crveni → Žuti
   // - Ako nema sivih: Svi beli alfabetski → Plavi → Zeleni → Crveni → Žuti
+  // Sortiranje po bojama kartica (veći broj = niži prioritet = ide na dno)
+  // Koristi CardColorHelper prioritete: Odsustvo > Otkazano > Plaćeno > Pokupljeno > Tuđi > Nepokupljeno
   int _putnikSortKey(Putnik p, String currentDriver, {bool imaSivih = false}) {
-    // 🟡 ŽUTE - Odsustvo ima najveći sort key (na dno)
-    if (p.jeOdsustvo) {
-      return 7; // žute na dno liste
-    }
+    // Koristi CardColorHelper za određivanje stanja putnika
+    final cardState = CardColorHelper.getCardStateWithDriver(p, currentDriver);
 
-    // 🔴 CRVENE - Otkazane
-    if (p.jeOtkazan) {
-      return 6; // crvene pre žutih
+    switch (cardState) {
+      case CardState.odsustvo:
+        return 7; // 🟡 Žute - na dno liste (najniži prioritet za sortiranje)
+      case CardState.otkazano:
+        return 6; // 🔴 Crvene - pre žutih
+      case CardState.placeno:
+        return 5; // 🟢 Zelene - plaćeni/mesečni
+      case CardState.pokupljeno:
+        return 4; // 🔵 Plave - pokupljeni neplaćeni
+      case CardState.tudji:
+        return 3; // 🔘 Sive - tuđi putnici
+      case CardState.nepokupljeno:
+        // ⚪ Belih ima dva tipa: UKLONJENO sortiranje po dodeljenom vozaču
+        // final bool isMoj = p.dodeljenVozac == currentDriver;
+        // return isMoj ? 1 : 2; // Moji na vrh, nedodeljeni ispod
+        return 1; // Svi beli zajedno
     }
-
-    // Pokupljeni putnici (plavi/zeleni ostaju normalno)
-    if (p.jePokupljen) {
-      // 🟢 ZELENE - Plaćeni ili mesečni
-      final bool isPlaceno = (p.iznosPlacanja ?? 0) > 0;
-      final bool isMesecniTip = p.isMesecniTip;
-      if (isPlaceno || isMesecniTip) {
-        return 5; // zelene
-      }
-      // 🔵 PLAVE - Pokupljeni neplaćeni (dnevni tip)
-      return 4;
-    }
-
-    // 🔘 SIVI - Tuđi putnici (dodeljen DRUGOM vozaču) - NEPOKUPLJENI
-    final bool isTudji = p.dodeljenVozac != null && p.dodeljenVozac!.isNotEmpty && p.dodeljenVozac != currentDriver;
-    if (isTudji) {
-      return 3; // sivi - tuđi putnici
-    }
-
-    // ⚪ BELI - Moji ili Nedodeljeni
-    // Ako ima sivih, razdvoji moje i nedodeljene
-    // Ako nema sivih, svi beli zajedno (alfabetski)
-    if (imaSivih) {
-      final bool isMoj = p.dodeljenVozac == currentDriver;
-      if (isMoj) {
-        return 1; // moji na vrh
-      }
-      return 2; // nedodeljeni
-    }
-
-    // Nema sivih - svi beli zajedno
-    return 1;
   }
 
   // Helper za proveru da li ima sivih kartica u listi
+  // Koristi CardColorHelper za konzistentnu logiku
   bool _imaSivihKartica(List<Putnik> putnici, String currentDriver) {
-    return putnici.any((p) =>
-        !p.jeOdsustvo &&
-        !p.jeOtkazan &&
-        !p.jePokupljen &&
-        p.dodeljenVozac != null &&
-        p.dodeljenVozac!.isNotEmpty &&
-        p.dodeljenVozac != currentDriver);
+    return putnici.any((p) {
+      final cardState = CardColorHelper.getCardStateWithDriver(p, currentDriver);
+      return cardState == CardState.tudji; // Samo tuđi putnici su sivi
+    });
   }
 
   // Helper za proveru da li putnik treba da ima redni broj
@@ -177,6 +159,7 @@ class PutnikList extends StatelessWidget {
               }
 
               return PutnikCard(
+                key: ValueKey(putnik.id),
                 putnik: putnik,
                 showActions: showActions,
                 currentDriver: currentDriver,
@@ -185,6 +168,7 @@ class PutnikList extends StatelessWidget {
                 vsVremena: vsVremena,
                 selectedGrad: selectedGrad,
                 selectedVreme: selectedVreme,
+                selectedDan: selectedDan,
                 onChanged: onPutnikStatusChanged,
                 onPokupljen: onPokupljen,
               );
@@ -261,6 +245,7 @@ class PutnikList extends StatelessWidget {
               redniBroj = _pocetniRedniBroj(prikaz, index);
             }
             return PutnikCard(
+              key: ValueKey(putnik.id),
               putnik: putnik,
               showActions: showActions,
               currentDriver: currentDriver,
@@ -269,6 +254,7 @@ class PutnikList extends StatelessWidget {
               vsVremena: vsVremena,
               selectedGrad: selectedGrad,
               selectedVreme: selectedVreme,
+              selectedDan: selectedDan,
               onChanged: onPutnikStatusChanged,
               onPokupljen: onPokupljen,
             );
@@ -302,6 +288,7 @@ class PutnikList extends StatelessWidget {
             redniBroj = _pocetniRedniBroj(filteredPutnici, index);
           }
           return PutnikCard(
+            key: ValueKey(putnik.id),
             putnik: putnik,
             showActions: showActions,
             currentDriver: currentDriver,
@@ -310,6 +297,7 @@ class PutnikList extends StatelessWidget {
             vsVremena: vsVremena,
             selectedGrad: selectedGrad,
             selectedVreme: selectedVreme,
+            selectedDan: selectedDan,
             onChanged: onPutnikStatusChanged,
             onPokupljen: onPokupljen,
           );

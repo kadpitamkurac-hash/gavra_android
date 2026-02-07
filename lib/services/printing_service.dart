@@ -9,13 +9,13 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/putnik.dart';
-import '../services/putnik_service.dart';
+import '../services/registrovani_putnik_service.dart';
 import '../utils/date_utils.dart' as app_date_utils;
 import '../utils/grad_adresa_validator.dart';
 import '../utils/text_utils.dart';
 
 class PrintingService {
-  static final PutnikService _putnikService = PutnikService();
+  static final RegistrovaniPutnikService _putnikService = RegistrovaniPutnikService();
 
   // ========== FONTOVI SA PODRŠKOM ZA SRPSKA SLOVA ==========
   static pw.Font? _regularFont;
@@ -47,13 +47,7 @@ class PrintingService {
         isoDate = DateTime.now().toIso8601String().split('T')[0];
       }
 
-      List<Putnik> sviPutnici = await _putnikService
-          .streamKombinovaniPutniciFiltered(
-            isoDate: isoDate,
-            grad: selectedGrad,
-            vreme: selectedVreme,
-          )
-          .first;
+      List<Putnik> sviPutnici = await _putnikService.getPutniciByDayIso(isoDate);
 
       String getDayAbbreviation(String fullDayName) {
         return app_date_utils.DateUtils.getDayAbbreviation(fullDayName);

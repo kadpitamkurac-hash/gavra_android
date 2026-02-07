@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/putnik.dart';
-import '../services/putnik_service.dart';
+import '../services/registrovani_putnik_service.dart';
 import '../theme.dart';
-import '../utils/putnik_helpers.dart';
 import '../widgets/putnik_list.dart';
 
 class DugoviScreen extends StatefulWidget {
@@ -116,9 +115,14 @@ class _DugoviScreenState extends State<DugoviScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Putnik>>(
-      stream: PutnikService().streamKombinovaniPutniciFiltered(
-        isoDate: PutnikHelpers.getWorkingDateIso(),
-      ),
+      stream: RegistrovaniPutnikService.streamAktivniRegistrovaniPutnici().map((registrovani) {
+        final allPutnici = <Putnik>[];
+        for (final item in registrovani) {
+          final registrovaniPutnici = Putnik.fromRegistrovaniPutniciMultiple(item.toMap());
+          allPutnici.addAll(registrovaniPutnici);
+        }
+        return allPutnici;
+      }),
       builder: (context, snapshot) {
         final putnici = snapshot.data ?? [];
         final isLoading = snapshot.connectionState == ConnectionState.waiting && putnici.isEmpty;

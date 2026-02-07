@@ -10,7 +10,6 @@ import '../services/adresa_supabase_service.dart';
 import '../services/cena_obracun_service.dart';
 import '../services/haptic_service.dart';
 import '../services/permission_service.dart';
-import '../services/putnik_service.dart';
 import '../services/registrovani_putnik_service.dart';
 import '../services/vozac_mapping_service.dart';
 import '../theme.dart';
@@ -31,6 +30,7 @@ class PutnikCard extends StatefulWidget {
     this.vsVremena,
     this.selectedVreme,
     this.selectedGrad,
+    this.selectedDan,
     this.onChanged,
     this.onPokupljen,
   });
@@ -42,6 +42,7 @@ class PutnikCard extends StatefulWidget {
   final List<String>? vsVremena;
   final String? selectedVreme;
   final String? selectedGrad;
+  final String? selectedDan;
   final VoidCallback? onChanged;
   final VoidCallback? onPokupljen;
 
@@ -843,7 +844,7 @@ class _PutnikCardState extends State<PutnikCard> {
 
         // ✅ FIX: Šalji grad umesto place - oznaciPlaceno sada sam računa place
         // ISTO kao oznaciPokupljen - konzistentna logika!
-        await PutnikService().oznaciPlaceno(
+        await RegistrovaniPutnikService().oznaciPlaceno(
           _putnik.id!,
           iznos,
           widget.currentDriver,
@@ -855,8 +856,10 @@ class _PutnikCardState extends State<PutnikCard> {
         setState(() {
           _isProcessing = false; // Resetuj lokalni lock
         });
-        _globalProcessingLock = false; // Resetuj globalni lock
+      }
+      _globalProcessingLock = false; // Resetuj globalni lock (UVEK - čak i ako widget nije mounted)
 
+      if (mounted) {
         // Pozovi callback za refresh parent widget-a
         if (widget.onChanged != null) {
           widget.onChanged!();
@@ -880,8 +883,10 @@ class _PutnikCardState extends State<PutnikCard> {
         setState(() {
           _isProcessing = false;
         });
-        _globalProcessingLock = false;
+      }
+      _globalProcessingLock = false; // Resetuj globalni lock i u catch bloku (UVEK)
 
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Greška pri plaćanju: $e'),
@@ -972,7 +977,7 @@ class _PutnikCardState extends State<PutnikCard> {
       }
 
       // Pozovi service za postavljanje statusa
-      await PutnikService().oznaciBolovanjeGodisnji(
+      await RegistrovaniPutnikService().oznaciBolovanjeGodisnji(
         putnikId,
         status,
         widget.currentDriver,
@@ -1195,11 +1200,10 @@ class _PutnikCardState extends State<PutnikCard> {
   void _handleTap() {
     _tapCount++;
 
-    // Ako je ovo prvi tap, kreni timer
+    // Ako je ovo prvi tap, kreni timer (produžen sa 500ms na 800ms za bolje hvatanje)
     if (_tapCount == 1) {
       _tapTimer?.cancel();
-      _tapTimer = Timer(const Duration(milliseconds: 500), () {
-        // Ako nismo dobili 3 tap-a za 500ms, resetuj
+      _tapTimer = Timer(const Duration(milliseconds: 800), () {
         _tapCount = 0;
       });
     }
@@ -1213,8 +1217,6 @@ class _PutnikCardState extends State<PutnikCard> {
       final bool isAdmin = widget.currentDriver == 'Bojan' || widget.currentDriver == 'Svetlana';
       if (isAdmin) {
         _handleReset();
-      } else {
-        debugPrint('🔒 Triple tap dostupan samo adminu (${widget.currentDriver})');
       }
     }
   }
@@ -1243,23 +1245,28 @@ class _PutnikCardState extends State<PutnikCard> {
       HapticService.mediumImpact();
 
       // Označi putnika kao pokupljenog
-      await PutnikService().oznaciPokupljen(
+      await RegistrovaniPutnikService().oznaciPokupljen(
         _putnik.id!,
         widget.currentDriver,
         grad: _putnik.grad,
+        selectedDan: widget.selectedDan,
       );
 
       if (mounted) {
         setState(() {
           _isProcessing = false;
         });
-        _globalProcessingLock = false;
+      }
+      _globalProcessingLock = false; // Resetuj globalni lock (UVEK)
 
+      if (mounted) {
         // 📳 JAČA VIBRACIJA - dve pulsa "bip-bip" kad se pokupi
         await HapticService.putnikPokupljen();
 
         // Pozovi callback za refresh parent widget-a
         if (widget.onChanged != null) {
+          // Sačekaj malo da se baza ažurira i stream emituje
+          await Future.delayed(const Duration(milliseconds: 200));
           widget.onChanged!();
         }
 
@@ -1277,8 +1284,10 @@ class _PutnikCardState extends State<PutnikCard> {
         setState(() {
           _isProcessing = false;
         });
-        _globalProcessingLock = false;
+      }
+      _globalProcessingLock = false; // Resetuj globalni lock i u catch bloku (UVEK)
 
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Greška pri pokupljenju: $e'),
@@ -1307,9 +1316,6 @@ class _PutnikCardState extends State<PutnikCard> {
 
   @override
   Widget build(BuildContext context) {
-    // Proverava uslove za prikazivanje X ikone
-    if (_putnik.ime == 'Ljilla') {}
-
     // 🎨 BOJE KARTICE - koristi CardColorHelper sa proverom vozača
     final BoxDecoration cardDecoration = CardColorHelper.getCardDecorationWithDriver(
       _putnik,
@@ -2289,51 +2295,24 @@ class _PutnikCardState extends State<PutnikCard> {
 
     if (confirm == true) {
       try {
-        await PutnikService().otkaziPutnika(
+        // 📳 Haptic feedback - vibracija da potvrdi otkazivanje
+        HapticService.heavyImpact();
+
+        await RegistrovaniPutnikService().otkaziPutnika(
           _putnik.id!,
           widget.currentDriver,
           selectedVreme: _putnik.polazak,
           selectedGrad: _putnik.grad,
-          selectedDan: _putnik.dan,
+          selectedDan: widget.selectedDan, // 🔧 FIX: Koristi prosleđeni dan umesto raw stringa iz modela
         );
 
-        // Ažuriraj lokalni _putnik sa novim statusom
-        if (mounted) {
-          setState(() {
-            _putnik = Putnik(
-              id: _putnik.id,
-              ime: _putnik.ime,
-              polazak: _putnik.polazak,
-              pokupljen: _putnik.pokupljen,
-              vremeDodavanja: _putnik.vremeDodavanja,
-              mesecnaKarta: _putnik.mesecnaKarta,
-              dan: _putnik.dan,
-              status: _putnik.status,
-              statusVreme: _putnik.statusVreme,
-              vremePokupljenja: _putnik.vremePokupljenja,
-              vremePlacanja: _putnik.vremePlacanja,
-              placeno: _putnik.placeno,
-              cena: _putnik.cena,
-              naplatioVozac: _putnik.naplatioVozac,
-              pokupioVozac: _putnik.pokupioVozac,
-              dodeljenVozac: _putnik.dodeljenVozac,
-              vozac: _putnik.vozac,
-              grad: _putnik.grad,
-              otkazaoVozac: widget.currentDriver,
-              vremeOtkazivanja: DateTime.now(),
-              adresa: _putnik.adresa,
-              adresaId: _putnik.adresaId,
-              obrisan: _putnik.obrisan,
-              brojTelefona: _putnik.brojTelefona,
-              brojMesta: _putnik.brojMesta,
-              tipPutnika: _putnik.tipPutnika,
-              otkazanZaPolazak: true,
-            );
-          });
-        }
+        // Ne ažuriraj lokalni _putnik - realtime stream će doneti ažurirane podatke
+        // Ovo sprečava nekonzistentnost između lokalnog stanja i baze
 
-        // Pozovi parent callback da se lista ponovo sortira
+        // 🎬 Sačekaj malo za animaciju preboje + realtime update
+        // AnimatedContainer treba 180ms + stream delay
         if (widget.onChanged != null) {
+          await Future.delayed(const Duration(milliseconds: 400));
           widget.onChanged!();
         }
       } catch (e) {
@@ -2348,49 +2327,32 @@ class _PutnikCardState extends State<PutnikCard> {
 
   // 🔄 RESETUJ KARTICU U POČETNO STANJE - triple tap
   Future<void> _handleReset() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Resetuj karticu'),
-        content: Text(
-            'Resetovati ${_putnik.ime} u početno stanje?\n\nOvo će:\n• Ukloniti vreme pokupljenja\n• Resetovati status na "radi"\n• Vratiti karticu u belo stanje'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Ne'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Da, resetuj'),
-          ),
-        ],
-      ),
-    );
+    try {
+      await RegistrovaniPutnikService().resetPutnikCard(
+        _putnik.ime,
+        widget.currentDriver,
+        selectedVreme: _putnik.polazak,
+        selectedGrad: _putnik.grad,
+        targetDan: widget.selectedDan,
+      );
 
-    if (confirm == true) {
-      try {
-        await PutnikService().resetPutnikCard(
-          _putnik.ime,
-          widget.currentDriver,
-          selectedVreme: _putnik.polazak,
-          selectedGrad: _putnik.grad,
+      // Sačekaj malo da se baza ažurira i stream emituje
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (widget.onChanged != null) {
+        widget.onChanged!();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SmartSnackBar.success('${_putnik.ime} resetovan/a u početno stanje', context),
         );
-
-        if (widget.onChanged != null) {
-          widget.onChanged!();
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SmartSnackBar.success('${_putnik.ime} resetovan/a u početno stanje', context),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SmartSnackBar.error('Greška pri resetovanju: $e', context),
-          );
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SmartSnackBar.error('Greška pri resetovanju: $e', context),
+        );
       }
     }
   }
@@ -2417,7 +2379,7 @@ class _PutnikCardState extends State<PutnikCard> {
 
     if (confirm == true) {
       try {
-        await PutnikService().ukloniIzTermina(
+        await RegistrovaniPutnikService().ukloniIzTermina(
           _putnik.id!,
           datum: _putnik.datum ?? DateTime.now().toIso8601String().split('T')[0],
           vreme: _putnik.polazak,

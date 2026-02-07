@@ -98,7 +98,7 @@ class RealtimeNotificationService {
   }) async {
     try {
       final response =
-          await supabase.from('push_tokens').select('token, provider').eq('user_id', putnikId).maybeSingle();
+          await supabase.from('push_tokens').select('token, provider').eq('putnik_id', putnikId).maybeSingle();
 
       if (response == null) {
         await LocalNotificationService.showRealtimeNotification(

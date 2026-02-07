@@ -335,7 +335,7 @@ class TimePickerCell extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: borderColor,
-            width: (isPending || isWaiting || isCancelled) ? 2 : 1,
+            width: (isPending || isWaiting || isCancelled || isApproved) ? 2 : 1,
           ),
         ),
         child: Center(
@@ -367,7 +367,7 @@ class TimePickerCell extends StatelessWidget {
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: (isPending || isWaiting || locked || isCancelled) ? 12 : 14,
+                        fontSize: (isPending || isWaiting || locked || isCancelled || isApproved) ? 12 : 14,
                       ),
                     ),
                   ],

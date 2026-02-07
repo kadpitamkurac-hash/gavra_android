@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-import '../services/putnik_service.dart';
+import '../globals.dart' as globals_file;
 import '../services/seat_request_service.dart';
 import '../services/voznje_log_service.dart';
 import '../theme.dart';
@@ -35,8 +35,7 @@ class _AdminZahteviScreenState extends State<AdminZahteviScreen> {
     if (idsToFetch.isEmpty) return;
 
     try {
-      final List<dynamic> response = await PutnikService()
-          .supabase
+      final List<dynamic> response = await globals_file.supabase
           .from('registrovani_putnici')
           .select('id, putnik_ime') // Fix: column is putnik_ime
           .inFilter('id', idsToFetch.toList());
