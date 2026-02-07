@@ -263,8 +263,7 @@ class RegistrovaniHelpers {
     if (raw is String) {
       try {
         decoded = jsonDecode(raw) as Map<String, dynamic>?;
-      } catch (e) {
-        debugPrint('❌ [isOtkazanForDayAndPlace] JSON decode error: $e');
+      } catch (_) {
         return false;
       }
     } else if (raw is Map<String, dynamic>) {
@@ -273,23 +272,17 @@ class RegistrovaniHelpers {
     if (decoded == null) return false;
 
     final dayData = decoded[dayKratica];
-    if (dayData == null || dayData is! Map) {
-      debugPrint(
-          '❌ [isOtkazanForDayAndPlace] dayData not found for $dayKratica. Available days: ${decoded.keys.toList()}');
-      return false;
-    }
+    if (dayData == null || dayData is! Map) return false;
 
     // Ključ je npr. 'bc_otkazano' ili 'vs_otkazano'
     final otkazanoKey = '${place}_otkazano';
     final otkazanoTimestamp = dayData[otkazanoKey] as String?;
 
     if (otkazanoTimestamp == null || otkazanoTimestamp.isEmpty) {
-      debugPrint('❌ [isOtkazanForDayAndPlace] No timestamp for $otkazanoKey. dayData keys: ${dayData.keys.toList()}');
       return false;
     }
 
     // Vrati true ako postoji timestamp otkazivanja
-    debugPrint('✅ [isOtkazanForDayAndPlace] Found cancellation for $dayKratica/$place: $otkazanoTimestamp');
     return true;
   }
 
