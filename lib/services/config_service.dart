@@ -1,6 +1,8 @@
 /// 🔐 CONFIG SERVICE
 /// Upravlja kredencijalima aplikacije (Supabase URL, keys, etc.)
 /// Učitava iz .env fajla ili environment varijabli
+library;
+
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ConfigService {
@@ -54,9 +56,16 @@ class ConfigService {
   /// Učitaj keystore podatke iz environment varijabli
   void _loadKeystoreFromEnv() {
     // Učitaj iz environment varijabli (--dart-define)
-    _storePassword = const String.fromEnvironment('KEYSTORE_PASSWORD', defaultValue: 'GavraRelease2024');
-    _keyPassword = const String.fromEnvironment('KEY_PASSWORD', defaultValue: 'GavraRelease2024');
-    _keyAlias = const String.fromEnvironment('KEY_ALIAS', defaultValue: 'gavra-release-key');
+    _storePassword = const String.fromEnvironment('KEYSTORE_PASSWORD', defaultValue: '');
+    _keyPassword = const String.fromEnvironment('KEY_PASSWORD', defaultValue: '');
+    _keyAlias = const String.fromEnvironment('KEY_ALIAS', defaultValue: '');
+
+    // 🔐 VAŽNO: Keystore kredencijali MORAJU biti postavljeni!
+    // Nikada se ne postavljaju default vrednosti jer su to tajne!
+    if (_storePassword.isEmpty || _keyPassword.isEmpty || _keyAlias.isEmpty) {
+      throw Exception(
+          '❌ Keystore kredencijali nisu postavljeni! Postavite KEYSTORE_PASSWORD, KEY_PASSWORD i KEY_ALIAS kao --dart-define varijable pri pokretanju aplikacije.');
+    }
   }
 
   String getSupabaseUrl() => _supabaseUrl;
@@ -66,6 +75,8 @@ class ConfigService {
   String getKeyPassword() => _keyPassword;
   String getKeyAlias() => _keyAlias;
 
-  String getDebugInfo() =>
-      'URL: $_supabaseUrl, AnonKey: ${_supabaseAnonKey.substring(0, 10)}..., ServiceKey: ${_supabaseServiceRoleKey.isNotEmpty ? "Postavljen" : "Nije postavljen"}';
+  String getDebugInfo() {
+    final anonKeyPreview = _supabaseAnonKey.length > 10 ? '${_supabaseAnonKey.substring(0, 10)}...' : '***';
+    return 'URL: $_supabaseUrl, AnonKey: $anonKeyPreview, ServiceKey: ${_supabaseServiceRoleKey.isNotEmpty ? "Postavljen ✓" : "Nije postavljen ✗"}';
+  }
 }
