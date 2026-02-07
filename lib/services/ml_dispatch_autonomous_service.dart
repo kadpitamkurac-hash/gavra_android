@@ -591,11 +591,16 @@ class MLDispatchAutonomousService extends ChangeNotifier {
   Future<void> _approveSeatRequest(String requestId, String dodeljenoVreme, Map<String, dynamic> request) async {
     try {
       // Update only if status is 'pending' to avoid race conditions
-      final updateResponse = await _supabase.from('seat_requests').update({
-        'status': 'approved',
-        'dodeljeno_vreme': dodeljenoVreme,
-        'processed_at': DateTime.now().toIso8601String(),
-      }).eq('id', requestId).eq('status', 'pending').select();
+      final updateResponse = await _supabase
+          .from('seat_requests')
+          .update({
+            'status': 'approved',
+            'dodeljeno_vreme': dodeljenoVreme,
+            'processed_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId)
+          .eq('status', 'pending')
+          .select();
 
       if (updateResponse.isEmpty) {
         if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren ili obrađen, preskačem');
@@ -718,6 +723,14 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         if (kDebugMode) print(' [ML Dispatch] ✅ Poslata notifikacija o odobrenju za $putnikId');
       } catch (e) {
         if (kDebugMode) print(' [ML Dispatch] ❌ Greška pri slanju notifikacije o odobrenju: $e');
+      }
+
+      // 🗑️ OBRIŠI SEAT REQUEST NAKON ODOBRENJA
+      try {
+        await _supabase.from('seat_requests').delete().eq('id', requestId);
+        if (kDebugMode) print(' [ML Dispatch] 🗑️ Obrisana seat request $requestId nakon odobravanja');
+      } catch (e) {
+        if (kDebugMode) print(' [ML Dispatch] ❌ Greška pri brisanju seat request $requestId: $e');
       }
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Greška pri odobravanju: $e');
