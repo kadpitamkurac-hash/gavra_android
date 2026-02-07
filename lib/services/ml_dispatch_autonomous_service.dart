@@ -590,10 +590,12 @@ class MLDispatchAutonomousService extends ChangeNotifier {
   /// Pomoćna funkcija za odobravanje zahteva
   Future<void> _approveSeatRequest(String requestId, String dodeljenoVreme, Map<String, dynamic> request) async {
     try {
-      // Prvo proveri da li je zahtev već odobren (izbegni duplu obradu)
-      final existingRequest = await _supabase.from('seat_requests').select('status').eq('id', requestId).maybeSingle();
-      if (existingRequest != null && existingRequest['status'] == 'approved') {
-        if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren, preskačem notifikaciju');
+      // Prvo proveri da li je zahtev već odobren ili obrađen (izbegni duplu obradu)
+      final existingRequest =
+          await _supabase.from('seat_requests').select('status, processed_at').eq('id', requestId).maybeSingle();
+      if (existingRequest != null &&
+          (existingRequest['status'] == 'approved' || existingRequest['processed_at'] != null)) {
+        if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren ili obrađen, preskačem notifikaciju');
         return;
       }
 

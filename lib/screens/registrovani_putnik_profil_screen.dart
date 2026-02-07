@@ -364,36 +364,6 @@ class _RegistrovaniPutnikProfilScreenState extends State<RegistrovaniPutnikProfi
         );
       }
 
-      // 🔔 Pošalji push notifikaciju (foreground/background/lock screen)
-      try {
-        final dniOznake = {
-          'pon': 'Ponedeljak',
-          'uto': 'Utorak',
-          'sre': 'Sredа',
-          'cet': 'Četvrtak',
-          'pet': 'Petak',
-          'sub': 'Subota',
-          'ned': 'Nedelja'
-        };
-        final danNaziv = dniOznake[dan] ?? dan;
-        final gradNaziv = grad.toUpperCase();
-
-        await LocalNotificationService.showRealtimeNotification(
-          title: '✅ Zahtev Odobren!',
-          body: 'Vaš zahtev za $vreme ($danNaziv $gradNaziv) je odobren. Slobodno mesto je dostupno!',
-          payload: jsonEncode({
-            'notification_id': 'seat_request_approval_$putnikId',
-            'type': 'seat_request_approval',
-            'putnik_id': putnikId,
-            'dan': dan,
-            'grad': grad,
-            'vreme': vreme,
-          }),
-        );
-      } catch (e) {
-        debugPrint('⚠️ [SeatRequestApproval] Greška pri slanju notifikacije: $e');
-      }
-
       debugPrint('✅ [SeatRequestApproval] Registrovani putnici ažuriran');
     } catch (e) {
       debugPrint('❌ [SeatRequestApproval] Greška: $e');
