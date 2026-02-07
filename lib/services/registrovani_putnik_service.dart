@@ -1601,7 +1601,17 @@ class RegistrovaniPutnikService {
 
       String danKratica;
       if (targetDan != null && targetDan.isNotEmpty) {
-        danKratica = targetDan.toLowerCase();
+        // Konvertuj puno ime dana u kraticu
+        final daniMape = {
+          'ponedeljak': 'pon',
+          'utorak': 'uto',
+          'sreda': 'sre',
+          'četvrtak': 'cet',
+          'petak': 'pet',
+          'subota': 'sub',
+          'nedelja': 'ned',
+        };
+        danKratica = daniMape[targetDan.toLowerCase()] ?? targetDan.toLowerCase();
       } else {
         final weekday = DateTime.now().weekday;
         const daniKratice = ['pon', 'uto', 'sre', 'cet', 'pet', 'sub', 'ned'];
@@ -1616,16 +1626,17 @@ class RegistrovaniPutnikService {
         }
       }
 
+      // Ukloni otkazano stanje i pokupljeno vreme - kartica ide u belo
+      // Čuva se u audit log kroz AdminAuditService
       dayData.remove('${place}_otkazano');
       dayData.remove('${place}_otkazao_vozac');
-      dayData.remove('${place}_pokupljeno');
+      dayData.remove('${place}_otkazano_vreme');
+      dayData.remove('${place}_pokupljeno'); // Uklanja pokupljeno za DANASNJI dan
       dayData.remove('${place}_pokupljeno_vozac');
-      dayData.remove('${place}_placeno');
-      dayData.remove('${place}_placeno_vozac');
-      dayData.remove('${place}_placeno_iznos');
-      dayData.remove('placeno');
-      dayData.remove('placeno_iznos');
-      dayData.remove('placeno_vozac');
+
+      // ✅ ČUVAMO plaćanja: placeno, placeno_vozac, placeno_iznos
+      // (Pokupljenja se čuvaju u AdminAuditService logs)
+
       polasci[danKratica] = dayData;
 
       final currentUser = _supabase.auth.currentUser;
