@@ -2353,8 +2353,11 @@ class _PutnikCardState extends State<PutnikCard> {
           widget.currentDriver,
           selectedVreme: _putnik.polazak,
           selectedGrad: _putnik.grad,
-          targetDan: widget.selectedDan, // 🔧 FIX: Dodato targetDan za precizan reset
+          targetDan: widget.selectedDan,
         );
+
+        // Sačekaj malo da se baza ažurira i stream emituje
+        await Future.delayed(const Duration(milliseconds: 300));
 
         if (widget.onChanged != null) {
           widget.onChanged!();
