@@ -386,6 +386,13 @@ class RegistrovaniPutnikService {
           debugPrint('🔄 [_handleUpdate] Ažurirao sam ${mergedRecord['putnik_ime']} u _lastValue');
         }
         _lastValue!.sort((a, b) => a.putnikIme.compareTo(b.putnikIme));
+        
+        // Debug: Log _lastValue nakon sort-a
+        debugPrint('📊 [_handleUpdate] Sadržaj _lastValue nakon sort-a (${_lastValue!.length} putnika):');
+        for (int i = 0; i < _lastValue!.length; i++) {
+          final p = _lastValue![i];
+          debugPrint('  [$i] ${p.putnikIme}');
+        }
       } else {
         // Ukloni iz liste ako postoji
         if (index != -1) {
@@ -404,10 +411,10 @@ class RegistrovaniPutnikService {
   static void _emitUpdate() {
     if (_sharedController != null && !_sharedController!.isClosed) {
       // Debug: Log šta emitujemo
-      for (final p in _lastValue!) {
-        if (p.putnikIme.contains('Djordje')) {
-          debugPrint('📤 [_emitUpdate] Emitujemo: ${p.putnikIme} | polasciPoDanuOriginal type=${p.polasciPoDanuOriginal.runtimeType}');
-        }
+      debugPrint('📤 [_emitUpdate] POČINJEMO EMIT: ${_lastValue!.length} putnika');
+      for (int i = 0; i < _lastValue!.length; i++) {
+        final p = _lastValue![i];
+        debugPrint('  📤 [$i] ${p.putnikIme}');
       }
       _sharedController!.add(List.from(_lastValue!));
     }
