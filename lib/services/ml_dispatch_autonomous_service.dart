@@ -590,20 +590,17 @@ class MLDispatchAutonomousService extends ChangeNotifier {
   /// Pomoćna funkcija za odobravanje zahteva
   Future<void> _approveSeatRequest(String requestId, String dodeljenoVreme, Map<String, dynamic> request) async {
     try {
-      // Prvo proveri da li je zahtev već odobren ili obrađen (izbegni duplu obradu)
-      final existingRequest =
-          await _supabase.from('seat_requests').select('status, processed_at').eq('id', requestId).maybeSingle();
-      if (existingRequest != null &&
-          (existingRequest['status'] == 'approved' || existingRequest['processed_at'] != null)) {
-        if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren ili obrađen, preskačem notifikaciju');
-        return;
-      }
-
-      await _supabase.from('seat_requests').update({
+      // Update only if status is 'pending' to avoid race conditions
+      final updateResponse = await _supabase.from('seat_requests').update({
         'status': 'approved',
         'dodeljeno_vreme': dodeljenoVreme,
         'processed_at': DateTime.now().toIso8601String(),
-      }).eq('id', requestId);
+      }).eq('id', requestId).eq('status', 'pending').select();
+
+      if (updateResponse.isEmpty) {
+        if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren ili obrađen, preskačem');
+        return;
+      }
 
       // 🆕 SINHRONIZUJ POLASCI_PO_DANU STATUS
       final putnikId = request['putnik_id'];
