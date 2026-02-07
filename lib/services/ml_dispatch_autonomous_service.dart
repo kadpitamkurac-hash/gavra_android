@@ -7,7 +7,31 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../globals.dart';
 import '../utils/grad_adresa_validator.dart';
 import 'kapacitet_service.dart';
+import 'realtime_notification_service.dart';
 import 'slobodna_mesta_service.dart';
+
+/// 🎯 Enum za prioritete saveta
+enum AdvicePriority { smart, critical }
+
+/// 🎯 Klasa za dispečerske savete
+class DispatchAdvice {
+  final String title;
+  final String description;
+  final AdvicePriority priority;
+  final String action;
+  final String? originalStatus;
+  final String? proposedChange;
+  final DateTime timestamp;
+
+  DispatchAdvice({
+    required this.title,
+    required this.description,
+    required this.priority,
+    required this.action,
+    this.originalStatus,
+    this.proposedChange,
+  }) : timestamp = DateTime.now();
+}
 
 ///  BEBA DISPEČER (ML Dispatch Autonomous Service)
 ///
@@ -24,6 +48,9 @@ class MLDispatchAutonomousService extends ChangeNotifier {
   final Map<String, double> _recurrentFactors = {};
   final Map<String, String> _passengerAffinity = {}; // putnik_id -> vozac_ime (Naučeno)
   double _avgHourlyBookings = 0.5;
+
+  // 🔒 Zaštita od dupla obrade zahteva
+  final Set<String> _processingRequests = {};
 
   bool _isActive = false;
   bool _isAutopilotEnabled = false; //  100% Autonomija
@@ -382,6 +409,16 @@ class MLDispatchAutonomousService extends ChangeNotifier {
     }
   }
 
+  void _triggerAlert(String title, String body) {
+    _currentAdvice.add(DispatchAdvice(
+      title: title,
+      description: body,
+      priority: AdvicePriority.smart,
+      action: 'Vidi',
+    ));
+    notifyListeners();
+  }
+
   Future<void> _analyzeRealtimeDemand() async {
     try {
       final DateTime oneHourAgo = DateTime.now().toUtc().subtract(const Duration(hours: 1));
@@ -481,6 +518,15 @@ class MLDispatchAutonomousService extends ChangeNotifier {
 
   /// Obradi pojedinačni zahtev
   Future<void> _processSingleRequest(String requestId) async {
+    // 🔒 Ako je zahtev već u obradi, preskočite
+    if (_processingRequests.contains(requestId)) {
+      if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već u obradi, preskačem...');
+      return;
+    }
+
+    // Dodaj u set obrade
+    _processingRequests.add(requestId);
+
     try {
       // Proveri da li je još uvek pending
       final request =
@@ -507,10 +553,10 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         if (kDebugMode) print(' [ML Dispatch] ✅ Odobren zahtev $requestId');
       } else {
         // Nema mesta - nađi alternativu
-        final alternativeTimes = await findAlternativeTimes(grad, datum, vreme, brojMesta);
-        if (alternativeTimes.isNotEmpty) {
-          await _proposeAlternatives(requestId, alternativeTimes);
-          if (kDebugMode) print(' [ML Dispatch] 🔄 Ponuđene alternative za $requestId: ${alternativeTimes.join(", ")}');
+        final alternatives = await findAlternativeTimes(grad, datum, vreme, brojMesta);
+        if (alternatives.isNotEmpty) {
+          await _proposeAlternatives(requestId, alternatives);
+          if (kDebugMode) print(' [ML Dispatch] 🔄 Ponuđene alternative za $requestId: ${alternatives.join(", ")}');
         } else {
           // Nema alternative - ostavi pending
           if (kDebugMode) print(' [ML Dispatch] ❌ Nema alternative za $requestId');
@@ -518,12 +564,22 @@ class MLDispatchAutonomousService extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Greška pri obradi $requestId: $e');
+    } finally {
+      // 🔒 Ukloni iz set-a obrade kada završi
+      _processingRequests.remove(requestId);
     }
   }
 
   /// Pomoćna funkcija za odobravanje zahteva
   Future<void> _approveSeatRequest(String requestId, String dodeljenoVreme, Map<String, dynamic> request) async {
     try {
+      // Prvo proveri da li je zahtev već odobren (izbegni duplu obradu)
+      final existingRequest = await _supabase.from('seat_requests').select('status').eq('id', requestId).maybeSingle();
+      if (existingRequest != null && existingRequest['status'] == 'approved') {
+        if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već odobren, preskačem notifikaciju');
+        return;
+      }
+
       await _supabase.from('seat_requests').update({
         'status': 'approved',
         'dodeljeno_vreme': dodeljenoVreme,
@@ -623,6 +679,29 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         'metadata': {'request_id': requestId, 'assigned_time': dodeljenoVreme},
         'created_at': DateTime.now().toIso8601String(),
       });
+
+      // 📲 POŠALJI NOTIFIKACIJU PUTNIKU O ODOBRENJU
+      try {
+        // Izračunaj dan u nedelji za prikaz u notifikaciji
+        final dateTime = DateTime.parse(datum);
+        final danMap = {1: 'Ponedeljak', 2: 'Utorak', 3: 'Sredu', 4: 'Četvrtak', 5: 'Petak', 6: 'Subotu', 7: 'Nedelju'};
+        final danNaziv = danMap[dateTime.weekday] ?? 'Dan';
+
+        await RealtimeNotificationService.sendNotificationToPutnik(
+          putnikId: putnikId,
+          title: '✅ Vaš zahtev je odobren!',
+          body: 'Vaš zahtev za $danNaziv $dodeljenoVreme ($grad) je odobren. Uživajte u vožnji!',
+          data: {
+            'type': 'seat_request_approved',
+            'request_id': requestId,
+            'grad': grad,
+            'dodeljeno_vreme': dodeljenoVreme,
+          },
+        );
+        if (kDebugMode) print(' [ML Dispatch] ✅ Poslata notifikacija o odobrenju za $putnikId');
+      } catch (e) {
+        if (kDebugMode) print(' [ML Dispatch] ❌ Greška pri slanju notifikacije o odobrenju: $e');
+      }
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Greška pri odobravanju: $e');
     }
@@ -695,39 +774,35 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         'metadata': {'request_id': requestId, 'alternative_times': alternativeTimes},
         'created_at': DateTime.now().toIso8601String(),
       });
+
+      // 🔄 DOBAVI REQUEST DETALJE ZA NOTIFIKACIJU
+      final request = await _supabase.from('seat_requests').select('*').eq('id', requestId).maybeSingle();
+      if (request != null) {
+        final putnikId = request['putnik_id'];
+        final grad = request['grad'];
+        final vreme = request['zeljeno_vreme'];
+
+        // 📲 POŠALJI NOTIFIKACIJU PUTNIKU SA ALTERNATIVAMA
+        try {
+          await RealtimeNotificationService.sendNotificationToPutnik(
+            putnikId: putnikId,
+            title: '🔄 Predložene alternative za vaš zahtev',
+            body: 'Zahtev za $grad $vreme - dostupne alternative: $alternativesString',
+            data: {
+              'type': 'seat_request_alternatives',
+              'request_id': requestId,
+              'grad': grad,
+              'zeljeno_vreme': vreme,
+              'alternative_vreme': alternativesString,
+            },
+          );
+          if (kDebugMode) print(' [ML Dispatch] ✅ Poslata notifikacija sa alternativama za $putnikId');
+        } catch (e) {
+          if (kDebugMode) print(' [ML Dispatch] ❌ Greška pri slanju notifikacije: $e');
+        }
+      }
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Greška pri predlaganju alternative: $e');
     }
   }
-
-  void _triggerAlert(String title, String body) {
-    _currentAdvice.add(DispatchAdvice(
-      title: title,
-      description: body,
-      priority: AdvicePriority.smart,
-      action: 'Vidi',
-    ));
-    notifyListeners();
-  }
-}
-
-enum AdvicePriority { smart, critical }
-
-class DispatchAdvice {
-  final String title;
-  final String description;
-  final AdvicePriority priority;
-  final String action;
-  final String? originalStatus;
-  final String? proposedChange;
-  final DateTime timestamp;
-
-  DispatchAdvice({
-    required this.title,
-    required this.description,
-    required this.priority,
-    required this.action,
-    this.originalStatus,
-    this.proposedChange,
-  }) : timestamp = DateTime.now();
 }
