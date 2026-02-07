@@ -715,7 +715,11 @@ class LocalNotificationService {
         putnikId: putnikId,
         title: '✅ Mesto osigurano!',
         body: '✅ Mesto osigurano! Vaša rezervacija za $termin je potvrđena. Želimo vam ugodnu vožnju! 🚌',
-        data: {'type': 'bc_alternativa_confirmed', 'termin': termin},
+        data: {
+          'notification_id': 'bc_alternativa_confirmed_${putnikId}_$dan',
+          'type': 'bc_alternativa_confirmed',
+          'termin': termin
+        },
       );
     } catch (e) {
       // 🔇 Ignore errors
@@ -766,7 +770,11 @@ class LocalNotificationService {
         title: '✅ Zahtev primljen',
         body:
             '📨 Vaš zahtev je evidentiran! Proveravamo raspoloživost mesta i javljamo vam se u najkraćem mogućem roku!',
-        data: {'type': 'vs_waiting_confirmed', 'termin': zeljeniTermin},
+        data: {
+          'notification_id': 'vs_waiting_confirmed_${putnikId}_$dan',
+          'type': 'vs_waiting_confirmed',
+          'termin': zeljeniTermin
+        },
       );
     } catch (e) {
       // 🔇 Ignore errors
@@ -963,7 +971,11 @@ class LocalNotificationService {
         putnikId: putnikId,
         title: '✅ [VS] Termin potvrđen',
         body: '✅ Mesto osigurano! Vaša rezervacija za $termin je potvrđena. Želimo vam ugodnu vožnju! 🚌',
-        data: {'type': 'vs_alternativa_confirmed', 'termin': termin},
+        data: {
+          'notification_id': 'vs_alternativa_confirmed_${putnikId}_$dan',
+          'type': 'vs_alternativa_confirmed',
+          'termin': termin
+        },
       );
     } catch (e) {
       // 🔇 Ignore
@@ -1133,7 +1145,11 @@ class LocalNotificationService {
         title: '✅ Zahtev primljen',
         body:
             '📨 Vaš zahtev je evidentiran! Proveravamo raspoloživost mesta i javljamo vam se u najkraćem mogućem roku!',
-        data: {'type': 'vs_ceka_mesto_confirmed', 'termin': zeljeniTermin},
+        data: {
+          'notification_id': 'vs_ceka_mesto_confirmed_${putnikId}_$dan',
+          'type': 'vs_ceka_mesto_confirmed',
+          'termin': zeljeniTermin
+        },
       );
     } catch (e) {
       // 🔇 Ignore

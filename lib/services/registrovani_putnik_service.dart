@@ -1126,16 +1126,14 @@ class RegistrovaniPutnikService {
   /// Dodaje termin za registrovanog putnika (integracija sa PutnikService logikom)
   Future<void> dodajTerminZaPutnika(Putnik putnik, {bool skipKapacitetCheck = false}) async {
     try {
-      // Validacije iz PutnikService.dodajPutnika
-      if (putnik.mesecnaKarta != true) {
-        throw Exception('Svi putnici moraju biti registrovani.');
-      }
+      // Validacije - uklonjeno ograničenje na mesecne karte, sada svi mogu imati termine
 
-      if (putnik.dodeljenVozac == null ||
-          putnik.dodeljenVozac!.isEmpty ||
-          !VozacBoja.isValidDriver(putnik.dodeljenVozac)) {
-        throw Exception('Neregistrovan vozač: ${putnik.dodeljenVozac}');
-      }
+      // UKLONJENO: Validacija dodeljenog vozača - automatsko dodeljivanje je uklonjeno
+      // if (putnik.dodeljenVozac == null ||
+      //     putnik.dodeljenVozac!.isEmpty ||
+      //     !VozacBoja.isValidDriver(putnik.dodeljenVozac)) {
+      //   throw Exception('Neregistrovan vozač: ${putnik.dodeljenVozac}');
+      // }
 
       if (GradAdresaValidator.isCityBlocked(putnik.grad)) {
         throw Exception('Grad ${putnik.grad} nije dozvoljen.');
@@ -1226,6 +1224,27 @@ class RegistrovaniPutnikService {
         // 'updated_by': putnik.dodeljenVozac, // Uklonjeno - kolona ne postoji u tabeli
       };
       await _supabase.from('registrovani_putnici').update(updateData).eq('id', putnikId);
+
+      // 📝 LOGUJ DODAVANJE TERMINA U voznje_log ZA KONZISTENTNOST
+      final targetDateIso = putnik.datum ?? DateTime.now().toIso8601String().split('T')[0];
+      await VoznjeLogService.logGeneric(
+        tip: 'zakazivanje_putnika',
+        putnikId: putnikId,
+        vozacId: null, // Termin bez vozača
+        iznos: 0, // Cena se određuje kasnije
+        brojMesta: putnik.brojMesta,
+        detalji: 'Dodan termin za ${putnik.ime}: $targetDateIso u ${putnik.polazak} (${putnik.grad})',
+        meta: {
+          'dan': putnik.dan,
+          'grad': putnik.grad,
+          'vreme': putnik.polazak,
+          'adresa': putnik.adresa,
+          'adresa_id': putnik.adresaId,
+          'broj_telefona': putnik.brojTelefona,
+          'datum': targetDateIso,
+          'tip_putnika': 'mesecni', // Razlikuj od dnevnih
+        },
+      );
 
       // Audit
       await UserAuditService().logUserChange(putnikId, 'add');

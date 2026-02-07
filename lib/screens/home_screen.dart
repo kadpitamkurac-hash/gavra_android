@@ -1690,9 +1690,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                         });
 
                                         // 🕐 KORISTI SELEKTOVANO VREME SA HOME SCREEN-A
-                                        // ✅ SADA: Mesečna karta = true za SVE tipove (radnik, ucenik, dnevni)
-                                        // Svi tipovi koriste istu logiku i registrovani_putnici tabelu
-                                        const isMesecnaKarta = true;
+                                        // ✅ ISPRAVLJENO: Mesečna karta zavisi od tipa putnika
+                                        final isMesecnaKarta = selectedPutnik!.tip != 'dnevni';
 
                                         // 🆕 Koristi "samo danas" adresu ako je postavljena, inače stalnu
                                         final adresaZaKoristiti = promeniAdresuSamoDanas && samoDanasAdresa != null
@@ -1703,14 +1702,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                             ? samoDanasAdresaId
                                             : null; // Stalna adresa ima adresaId u registrovani_putnici
 
+                                        // 📅 ZA SVE PUTNIKE: Dodaj termin identično (trajni u polasci_po_danu + log u voznje_log)
                                         final putnik = Putnik(
                                           ime: selectedPutnik!.putnikIme,
                                           polazak: _selectedVreme,
                                           grad: _selectedGrad,
                                           dan: _getDayAbbreviation(_selectedDay),
-                                          mesecnaKarta: isMesecnaKarta,
+                                          mesecnaKarta:
+                                              selectedPutnik!.tip != 'dnevni', // true za mesečne, false za dnevne
                                           vremeDodavanja: DateTime.now(),
-                                          dodeljenVozac: _currentDriver!, // Safe non-null assertion nakon validacije
+                                          // dodeljenVozac: _currentDriver!, // UKLONJENO: Automatsko dodeljivanje vozača
                                           adresa: adresaZaKoristiti,
                                           adresaId: adresaIdZaKoristiti, // 🆕 Za brži geocoding
                                           brojTelefona: selectedPutnik!.brojTelefona,
@@ -1722,11 +1723,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                           putnik,
                                           skipKapacitetCheck: AdminSecurityService.isAdmin(_currentDriver),
                                         );
-
-                                        // Force refresh samo trenutnog stream-a nakon dodavanja putnika
-                                        // Umesto clearCache koji čisti sve, osvežavamo samo trenutni dan
-                                        // final targetDateIso = _getTargetDateIsoFromSelectedDay(_selectedDay);
-                                        // RegistrovaniPutnikService.closeStream(isoDate: targetDateIso); // Not needed with realtime
 
                                         // Automatski izaberi vreme i grad novog putnika u bottom nav baru
                                         if (mounted) {

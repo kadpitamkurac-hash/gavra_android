@@ -115,10 +115,55 @@ class PermissionService {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
-                          Row(
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
+                              // ODOBRI DOZVOLE dugme - zelena boja
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Colors.green.shade400,
+                                      Colors.green.shade600,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: TextButton(
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                      horizontal: 12,
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    final success = await requestAllPermissions();
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop(success);
+                                    }
+                                  },
+                                  child: const Text(
+                                    'ODOBRI',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               // PRESKOČI dugme - crvenkasto
                               Container(
+                                width: double.infinity,
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topLeft,
@@ -143,53 +188,11 @@ class PermissionService {
                                   ),
                                   child: const Text(
                                     'PRESKOČI',
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              // ODOBRI DOZVOLE dugme - zelena boja
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Colors.green.shade400,
-                                        Colors.green.shade600,
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.4),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: TextButton(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                        horizontal: 12,
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      final success = await requestAllPermissions();
-                                      if (context.mounted) {
-                                        Navigator.of(context).pop(success);
-                                      }
-                                    },
-                                    child: const Text(
-                                      'ODOBRI',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
+                                      fontSize: 16,
                                     ),
                                   ),
                                 ),

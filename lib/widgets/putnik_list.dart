@@ -60,12 +60,10 @@ class PutnikList extends StatelessWidget {
       case CardState.tudji:
         return 3; // 🔘 Sive - tuđi putnici
       case CardState.nepokupljeno:
-        // ⚪ Belih ima dva tipa: Moji i Nedodeljeni
-        if (imaSivih) {
-          final bool isMoj = p.dodeljenVozac == currentDriver;
-          return isMoj ? 1 : 2; // Moji na vrh, nedodeljeni ispod
-        }
-        return 1; // Svi beli zajedno ako nema sivih
+        // ⚪ Belih ima dva tipa: UKLONJENO sortiranje po dodeljenom vozaču
+        // final bool isMoj = p.dodeljenVozac == currentDriver;
+        // return isMoj ? 1 : 2; // Moji na vrh, nedodeljeni ispod
+        return 1; // Svi beli zajedno
     }
   }
 

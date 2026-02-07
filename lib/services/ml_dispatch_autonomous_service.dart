@@ -51,6 +51,7 @@ class MLDispatchAutonomousService extends ChangeNotifier {
 
   // 🔒 Zaštita od dupla obrade zahteva
   final Set<String> _processingRequests = {};
+  final Set<String> _scheduledRequests = {}; // Zaštita od višestrukog zakazivanja
 
   bool _isActive = false;
   bool _isAutopilotEnabled = false; //  100% Autonomija
@@ -167,11 +168,14 @@ class MLDispatchAutonomousService extends ChangeNotifier {
     _isActive = false;
     _velocityTimer?.cancel();
     _bookingStream?.unsubscribe();
+    _processingRequests.clear();
+    _scheduledRequests.clear();
   }
 
   void _startVelocityMonitoring() {
     _velocityTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
       await _analyzeRealtimeDemand();
+      // UKLONJENO: _processNewSeatRequests() - poziva se samo pri startu
     });
   }
 
@@ -429,8 +433,8 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         _triggerAlert('REALTIME DEMAND', 'Nagli skok rezervacija (/h).');
       }
 
-      // 🆕 Automatska obrada novih zahteva po BC LOGIKA pravilima
-      await _processNewSeatRequests();
+      // UKLONJENO: Automatska obrada novih zahteva - sada se radi samo pri startu
+      // await _processNewSeatRequests();
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Velocity error: $e');
     }
@@ -463,12 +467,24 @@ class MLDispatchAutonomousService extends ChangeNotifier {
         final delay = _calculateProcessingDelay(putnikTip, datum, vremeSlanjaZahteva);
 
         if (delay != null) {
-          // Zakazaj obradu za kasnije
-          Future.delayed(delay, () => _processSingleRequest(requestId));
-          if (kDebugMode) print(' [ML Dispatch] Zakazao obradu za $requestId za ${delay.inMinutes} min');
+          // 🔒 Proveri da li je već zakazano
+          if (!_scheduledRequests.contains(requestId)) {
+            _scheduledRequests.add(requestId);
+            // Zakazaj obradu za kasnije
+            Future.delayed(delay, () => _processSingleRequest(requestId));
+            if (kDebugMode) print(' [ML Dispatch] Zakazao obradu za $requestId za ${delay.inMinutes} min');
+          } else {
+            if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već zakazan, preskačem...');
+          }
         } else {
-          // Odmah obradi
-          await _processSingleRequest(requestId);
+          // 🔒 Proveri da li je već zakazano ili u obradi
+          if (!_scheduledRequests.contains(requestId) && !_processingRequests.contains(requestId)) {
+            _scheduledRequests.add(requestId);
+            // Odmah obradi
+            await _processSingleRequest(requestId);
+          } else {
+            if (kDebugMode) print(' [ML Dispatch] ⚠️ Zahtev $requestId je već zakazan/obradjuje se, preskačem...');
+          }
         }
       }
     } catch (e) {
@@ -565,8 +581,9 @@ class MLDispatchAutonomousService extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print(' [ML Dispatch] Greška pri obradi $requestId: $e');
     } finally {
-      // 🔒 Ukloni iz set-a obrade kada završi
+      // 🔒 Ukloni iz set-ova kada završi
       _processingRequests.remove(requestId);
+      _scheduledRequests.remove(requestId);
     }
   }
 
@@ -692,6 +709,7 @@ class MLDispatchAutonomousService extends ChangeNotifier {
           title: '✅ Vaš zahtev je odobren!',
           body: 'Vaš zahtev za $danNaziv $dodeljenoVreme ($grad) je odobren. Uživajte u vožnji!',
           data: {
+            'notification_id': 'seat_request_approved_$requestId', // 🆕 Dodan za deduplikaciju
             'type': 'seat_request_approved',
             'request_id': requestId,
             'grad': grad,
@@ -789,6 +807,7 @@ class MLDispatchAutonomousService extends ChangeNotifier {
             title: '🔄 Predložene alternative za vaš zahtev',
             body: 'Zahtev za $grad $vreme - dostupne alternative: $alternativesString',
             data: {
+              'notification_id': 'seat_request_alternatives_$requestId', // 🆕 Dodan za deduplikaciju
               'type': 'seat_request_alternatives',
               'request_id': requestId,
               'grad': grad,

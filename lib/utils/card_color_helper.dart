@@ -147,10 +147,10 @@ class CardColorHelper {
       }
       return CardState.pokupljeno;
     }
-    // 🔘 TUĐI PUTNIK: ima vozača, vozač nije trenutni
-    if (putnik.dodeljenVozac != null && putnik.dodeljenVozac!.isNotEmpty && putnik.dodeljenVozac != currentDriver) {
-      return CardState.tudji;
-    }
+    // 🔘 UKLONJENO: Tuđi putnik - automatsko dodeljivanje vozača je uklonjeno
+    // if (putnik.dodeljenVozac != null && putnik.dodeljenVozac!.isNotEmpty && putnik.dodeljenVozac != currentDriver) {
+    //   return CardState.tudji;
+    // }
     return CardState.nepokupljeno;
   }
 
